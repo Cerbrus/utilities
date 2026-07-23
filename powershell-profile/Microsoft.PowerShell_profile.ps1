@@ -81,31 +81,60 @@ function Select-DevFolder {
 
 function dev {
     param([string]$folder)
-    $names = @(Get-ChildItem "C:\DEV" -Directory | Select-Object -ExpandProperty Name)
-    $path = "C:\DEV\$folder"
+    $root = 'C:\DEV'
+    $base = $root
+    $prefix = ''
+    $leaf = $folder
+    if ($folder) {
+        # Nested paths ('proj/backend' or 'proj\backend'): resolve everything up to
+        # the last separator as the base folder, match only on the leaf.
+        $idx = $folder.LastIndexOfAny([char[]]('\', '/'))
+        if ($idx -ge 0) {
+            $prefix = $folder.Substring(0, $idx + 1) -replace '/', '\'
+            $leaf = $folder.Substring($idx + 1)
+            $base = Join-Path $root $prefix
+            if (-not (Test-Path -LiteralPath $base -PathType Container)) {
+                Write-Host ''
+                Write-Host "No folder '$base'." -ForegroundColor Yellow
+                return
+            }
+        }
+    }
+    $names = @(Get-ChildItem $base -Directory | Select-Object -ExpandProperty Name)
     if (-not $folder) {
         $pick = Select-DevFolder (@('DEV root') + $names)
         if (-not $pick) { return }
-        $path = if ($pick -eq 'DEV root') { 'C:\DEV' } else { "C:\DEV\$pick" }
-    } elseif ($names -notcontains $folder) {
+        $path = if ($pick -eq 'DEV root') { $root } else { Join-Path $root $pick }
+    } elseif (-not $leaf) {
+        # Trailing separator ('dev proj/'): pick among that folder's subfolders.
+        if (-not $names) {
+            $path = $base
+        } else {
+            $pick = Select-DevFolder $names
+            if (-not $pick) { return }
+            $path = Join-Path $base $pick
+        }
+    } elseif ($names -contains $leaf) {
+        $path = Join-Path $base $leaf
+    } else {
         $suggestions = @($names |
-            Where-Object { $_.IndexOf($folder, [StringComparison]::OrdinalIgnoreCase) -ge 0 } |
-            Sort-Object @{ Expression = { -not $_.StartsWith($folder, 'OrdinalIgnoreCase') } }, { $_ })
+            Where-Object { $_.IndexOf($leaf, [StringComparison]::OrdinalIgnoreCase) -ge 0 } |
+            Sort-Object @{ Expression = { -not $_.StartsWith($leaf, 'OrdinalIgnoreCase') } }, { $_ })
         if ($suggestions.Count -eq 1) {
-            Write-Host "Use '$($suggestions[0])'? (Y/n) " -NoNewline -ForegroundColor Cyan
+            Write-Host "Use '$prefix$($suggestions[0])'? (Y/n) " -NoNewline -ForegroundColor Cyan
             $key = [Console]::ReadKey($true)
             Write-Host ''
             if ($key.Key -notin 'Y', 'Enter') { return }
-            $path = "C:\DEV\$($suggestions[0])"
+            $path = Join-Path $base $suggestions[0]
         } elseif ($suggestions) {
             Write-Host ''
-            Write-Host "No folder 'C:\DEV\$folder'. Pick:" -ForegroundColor Yellow
+            Write-Host "No folder '$(Join-Path $base $leaf)'. Pick:" -ForegroundColor Yellow
             $pick = Select-DevFolder $suggestions
             if (-not $pick) { return }
-            $path = "C:\DEV\$pick"
+            $path = Join-Path $base $pick
         } else {
             Write-Host ''
-            Write-Host "No folder 'C:\DEV\$folder'." -ForegroundColor Yellow
+            Write-Host "No folder '$(Join-Path $base $leaf)'." -ForegroundColor Yellow
             return
         }
     }
@@ -115,8 +144,20 @@ Set-Alias agent dev
 
 Register-ArgumentCompleter -CommandName dev, agent -ParameterName folder -ScriptBlock {
     param($commandName, $parameterName, $wordToComplete)
-    Get-ChildItem -Path "C:\DEV\" -Directory |
-        Where-Object { $_.Name -like "*$wordToComplete*" } |
-        Sort-Object @{ Expression = { -not $_.Name.StartsWith($wordToComplete, 'OrdinalIgnoreCase') } }, Name |
-        ForEach-Object { $_.Name }
+    $prefix = ''
+    $leaf = $wordToComplete
+    $idx = $wordToComplete.LastIndexOfAny([char[]]('\', '/'))
+    if ($idx -ge 0) {
+        $prefix = $wordToComplete.Substring(0, $idx + 1)
+        $leaf = $wordToComplete.Substring($idx + 1)
+    }
+    $base = Join-Path 'C:\DEV' ($prefix -replace '/', '\')
+    if (-not (Test-Path -LiteralPath $base -PathType Container)) { return }
+    Get-ChildItem -Path $base -Directory |
+        Where-Object { $_.Name -like "*$leaf*" } |
+        Sort-Object @{ Expression = { -not $_.Name.StartsWith($leaf, 'OrdinalIgnoreCase') } }, Name |
+        ForEach-Object {
+            $text = "$prefix$($_.Name)"
+            if ($text -match '\s') { "'$text'" } else { $text }
+        }
 }

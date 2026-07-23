@@ -29,6 +29,10 @@ Do not actually run installers while developing unless asked — they modify the
 
 `Microsoft.PowerShell_profile.ps1` is the single source of truth; user profiles just dot-source it (stub written by `Install.ps1`, which detects both PS 5.1 and PS 7+ and derives Documents via `[Environment]::GetFolderPath('MyDocuments')` for OneDrive redirection). The profile is a shortcut to launch `claude`: `dev`/`agent` picks a `C:\DEV` project folder and starts Claude Code there, built on `Select-DevFolder`, a raw-console picker (manual cursor positioning, ANSI escapes, `[Console]::ReadKey`).
 
+### claude-statusline
+
+`pr-statusline.ps1` renders Claude Code's status line from the session JSON piped to stdin (branch, model, context bar, rate limits, caveman-mode flag). `Install.ps1` rewrites the `statusLine` entry in Claude Code's `settings.json` (respects `$env:CLAUDE_CONFIG_DIR`, defaults to `~\.claude`) to point at the repo copy, preserving all other settings via a JSON round-trip.
+
 ### wifi-mute
 
 Chain: Wi-Fi connect → Windows logs event 8001 to `Microsoft-Windows-WLAN-AutoConfig/Operational` → one scheduled task per SSID (XPath event subscription, built via the `MSFT_TaskEventTrigger` CIM class because `New-ScheduledTaskTrigger` can't do event triggers) → runs `Set-Mute.ps1` by absolute path.

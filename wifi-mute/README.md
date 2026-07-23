@@ -10,12 +10,13 @@ Automatically mutes/unmutes the laptop when connecting to specific Wi-Fi network
 - Windows logs event **8001** to `Microsoft-Windows-WLAN-AutoConfig/Operational` on every Wi-Fi connect (including resume-from-sleep reconnects).
 - One scheduled task per network triggers on that event, filtered on SSID via an XPath subscription, and runs `Set-Mute.ps1`.
 - `Set-Mute.ps1` toggles the default playback device through the CoreAudio COM API (`IAudioEndpointVolume`) using inline C# — no external tools or modules.
+- The tasks pass `-Notify 1`, showing a silent toast ("Sound muted" / "Sound unmuted") via the WinRT toast API. The toast appears as sent by "Windows PowerShell" (borrowed AUMID) and is suppressed while Do Not Disturb / Focus Assist is active (still lands in the Action Center).
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `Set-Mute.ps1` | Mutes (`-Mute 1`) or unmutes (`-Mute 0`) the default playback device |
+| `Set-Mute.ps1` | Mutes (`-Mute 1`) or unmutes (`-Mute 0`) the default playback device; `-Notify 1` shows a toast |
 | `Install-WifiMuteTasks.ps1` | Registers the scheduled tasks; edit the `$networks` table at the top to change SSIDs |
 
 ## Install

@@ -7,11 +7,16 @@
 .PARAMETER Mute
     1 to mute, 0 to unmute. An [int] rather than a [bool] because scheduled
     tasks invoke this via `powershell.exe -File`, which cannot pass $true.
+.PARAMETER Notify
+    1 to show a toast notification of the change. Default 0 (silent).
 .EXAMPLE
-    .\Set-Mute.ps1 -Mute 1    # mute
-    .\Set-Mute.ps1 -Mute 0    # unmute
+    .\Set-Mute.ps1 -Mute 1              # mute
+    .\Set-Mute.ps1 -Mute 0 -Notify 1    # unmute, with toast
 #>
-param([int]$Mute = 1)
+param(
+    [int]$Mute = 1,
+    [int]$Notify = 0
+)
 
 Add-Type -TypeDefinition @"
 using System;
@@ -60,3 +65,25 @@ public static class Audio
 "@
 
 [Audio]::SetMute($Mute -ne 0)
+
+if ($Notify -ne 0) {
+    $null = [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime]
+    $null = [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom, ContentType = WindowsRuntime]
+
+    $message = if ($Mute -ne 0) { 'Sound muted' } else { 'Sound unmuted' }
+    $xml = New-Object Windows.Data.Xml.Dom.XmlDocument
+    $xml.LoadXml(@"
+<toast duration="short">
+  <visual><binding template="ToastGeneric">
+    <text>Wi-Fi mute</text>
+    <text>$message</text>
+  </binding></visual>
+  <audio silent="true"/>
+</toast>
+"@)
+
+    # Toasts require a registered AUMID; borrow Windows PowerShell's so no app registration is needed.
+    $appId = '{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\WindowsPowerShell\v1.0\powershell.exe'
+    [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($appId).Show(
+        [Windows.UI.Notifications.ToastNotification]::new($xml))
+}

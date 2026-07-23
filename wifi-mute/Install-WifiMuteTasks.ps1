@@ -39,7 +39,7 @@ foreach ($network in $networks) {
     $verb = if ($network.Mute) { 'Mute' } else { 'Unmute' }
     $taskName = "WiFi $verb - $($network.Ssid)"
     $action = New-ScheduledTaskAction -Execute 'powershell.exe' `
-        -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$scriptPath`" -Mute $($network.Mute)"
+        -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$scriptPath`" -Mute $($network.Mute) -Notify 1"
     $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
     Register-ScheduledTask -TaskName $taskName -Trigger (New-WifiEventTrigger $network.Ssid) `
         -Action $action -Settings $settings -Force | Out-Null

@@ -12,9 +12,17 @@ PowerShell profile with an interactive project picker for `C:\DEV`.
 
 ## Install
 
-The profile is used via a symlink so this repo stays the single source of truth.
+Run the installer (no admin required):
 
-From an **elevated** PowerShell (symlink creation requires admin unless Developer Mode is enabled):
+```powershell
+.\Install.ps1
+```
+
+It detects the installed PowerShell editions (Windows PowerShell 5.1 always; PowerShell 7+ if `pwsh` is found) and, for each one, writes a stub profile that dot-sources the repo file — so this repo stays the single source of truth. It is idempotent: an existing dot-source line (or a symlink already pointing at the repo profile) is left alone, and a profile with other content gets the dot-source line appended rather than overwritten.
+
+### Manual alternative: symlink
+
+If you prefer a symlink, run this from an **elevated** PowerShell (symlink creation requires admin unless Developer Mode is enabled):
 
 ```powershell
 New-Item -ItemType SymbolicLink -Path $PROFILE -Target 'C:\DEV\utilities\powershell-profile\Microsoft.PowerShell_profile.ps1' -Force
@@ -25,18 +33,10 @@ New-Item -ItemType SymbolicLink -Path $PROFILE -Target 'C:\DEV\utilities\powersh
 - Windows PowerShell 5.1: `C:\Users\<user>\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1`
 - PowerShell 7+: `C:\Users\<user>\Documents\PowerShell\Microsoft.PowerShell_profile.ps1`
 
-### No-admin alternative
-
-Instead of a symlink, create a stub profile that dot-sources the repo file:
-
-```powershell
-Set-Content $PROFILE '. C:\DEV\utilities\powershell-profile\Microsoft.PowerShell_profile.ps1'
-```
-
 ## Verify
 
 ```powershell
-Get-Item $PROFILE | Select-Object LinkType, Target   # symlink check
-. $PROFILE                                           # reload in current session
-dev                                                  # picker should appear
+Get-Content $PROFILE   # should show (or dot-source) the repo profile
+. $PROFILE             # reload in current session
+dev                    # picker should appear
 ```

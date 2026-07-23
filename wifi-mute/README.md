@@ -2,6 +2,8 @@
 
 Automatically mutes/unmutes the laptop when connecting to specific Wi-Fi networks.
 
+Which networks mute and which unmute is configured per machine in `networks.json` — any number of SSIDs is supported. For example:
+
 - Connect to **WorkNetwork** → sound muted
 - Connect to **HomeNetwork** → sound unmuted
 
@@ -17,21 +19,39 @@ Automatically mutes/unmutes the laptop when connecting to specific Wi-Fi network
 | File | Purpose |
 |------|---------|
 | `Set-Mute.ps1` | Mutes (`-Mute 1`) or unmutes (`-Mute 0`) the default playback device; `-Notify 1` shows a toast |
-| `Install-WifiMuteTasks.ps1` | Registers the scheduled tasks; edit the `$networks` table at the top to change SSIDs |
+| `Install.ps1` | Registers the scheduled tasks from `networks.json`; prompts for networks on first run (or with `-Reconfigure`) |
+| `networks.json` | Machine-specific network list (not committed, git-ignored); created by `Install.ps1` |
+
+## Configuration
+
+`networks.json` lives next to the scripts and is a JSON array of `{ssid, mute}` entries:
+
+```json
+[
+  { "ssid": "WorkNetwork", "mute": true },
+  { "ssid": "HomeNetwork", "mute": false }
+]
+```
+
+You can edit it by hand and re-run `Install.ps1`, or regenerate it interactively with `.\Install.ps1 -Reconfigure`.
 
 ## Install
 
 Run as your own user (no admin needed):
 
 ```powershell
-.\Install-WifiMuteTasks.ps1
+.\Install.ps1
 ```
 
-Re-running is idempotent — existing tasks are overwritten. After moving this repo, re-run it: tasks reference the script by absolute path.
+On first run (no `networks.json` yet) the script prompts interactively: enter an SSID, then whether to **m**ute or **u**nmute when connecting to it; repeat for as many networks as you like and press Enter on an empty SSID to finish (at least one network is required). The answers are saved to `networks.json` and the tasks are registered.
+
+On later runs the existing `networks.json` is used as-is; pass `-Reconfigure` to be prompted again.
+
+Re-running is idempotent — all existing `WiFi Mute - *` / `WiFi Unmute - *` tasks are removed first and re-created from the config, so networks removed from `networks.json` are cleaned up too. After moving this repo, re-run it: tasks reference the script by absolute path.
 
 ## Test
 
-Trigger the tasks manually without switching networks:
+Trigger the tasks manually without switching networks (using the example SSIDs above):
 
 ```powershell
 Start-ScheduledTask 'WiFi Mute - WorkNetwork'     # sound should mute
@@ -42,8 +62,10 @@ Or run the script directly: `.\Set-Mute.ps1 -Mute 1`
 
 ## Uninstall
 
+Remove all wifi-mute tasks in one go:
+
 ```powershell
-Unregister-ScheduledTask 'WiFi Mute - WorkNetwork', 'WiFi Unmute - HomeNetwork' -Confirm:$false
+Get-ScheduledTask -TaskName 'WiFi Mute - *', 'WiFi Unmute - *' | Unregister-ScheduledTask -Confirm:$false
 ```
 
 ## Notes & limitations

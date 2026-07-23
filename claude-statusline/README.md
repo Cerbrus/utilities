@@ -1,6 +1,10 @@
 # claude-statusline
 
-Status line for Claude Code. Renders, in one line:
+Status line for Claude Code:
+
+![The status line below Claude Code's input box](assets/statusline.png)
+
+Renders, in one line:
 
 - **Git branch** of the current workspace (omitted outside a repo; short SHA when detached)
 - **Model** display name

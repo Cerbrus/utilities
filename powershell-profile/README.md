@@ -2,6 +2,8 @@
 
 PowerShell profile providing a shortcut to launch `claude` in a project: pick a folder under `C:\DEV` and Claude Code starts there.
 
+![The dev folder picker](assets/picker.png)
+
 ## What it does
 
 - **`dev [folder]`** (alias: **`agent`**) — jump to a project folder under `C:\DEV` and launch `claude` there.
@@ -10,6 +12,10 @@ PowerShell profile providing a shortcut to launch `claude` in a project: pick a 
     - Subfolders work too: `dev proj/back` matches inside `C:\DEV\proj`, and `dev proj/` opens the picker on that folder's subfolders.
     - Tab completion on the folder argument, including nested paths (`dev proj/ba[tab]`).
 - **`Select-DevFolder`** — the reusable console picker behind `dev` (scrolling viewport, filter status line).
+
+Type-to-filter narrows the list as you type:
+
+![The picker filtered by typing "web"](assets/picker-filter.png)
 
 ## Install
 

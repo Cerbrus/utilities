@@ -7,6 +7,8 @@ Which networks mute and which unmute is configured per machine in `networks.json
 - Connect to **WorkNetwork** → sound muted
 - Connect to **HomeNetwork** → sound unmuted
 
+![The "Sound muted" toast](assets/toast.png)
+
 ## How it works
 
 - Windows logs event **8001** to `Microsoft-Windows-WLAN-AutoConfig/Operational` on every Wi-Fi connect (including resume-from-sleep reconnects).

@@ -54,8 +54,8 @@ Re-running is idempotent — all existing `WiFi Mute - *` / `WiFi Unmute - *` ta
 Trigger the tasks manually without switching networks (using the example SSIDs above):
 
 ```powershell
-Start-ScheduledTask 'WiFi Mute - WorkNetwork'     # sound should mute
-Start-ScheduledTask 'WiFi Unmute - HomeNetwork'    # sound should unmute
+Start-ScheduledTask 'WiFi Mute - WorkNetwork'    # sound should mute
+Start-ScheduledTask 'WiFi Unmute - HomeNetwork'  # sound should unmute
 ```
 
 Or run the script directly: `.\Set-Mute.ps1 -Mute 1`

@@ -27,7 +27,7 @@ Everything runs non-elevated; no admin prompt required.
 | Utility | Description |
 |---------|-------------|
 | [claude-statusline](claude-statusline/README.md) | Status line for Claude Code: branch, model, context usage, rate limits |
-| [powershell-profile](powershell-profile/README.md) | Shortcut to launch `claude` in a `C:\DEV` project, via an interactive picker (`dev` / `agent`) |
+| [powershell-profile](powershell-profile/README.md) | Shortcut to launch `claude` in a project folder (default `C:\DEV`), via an interactive picker (`dev` / `agent`) |
 | [wifi-mute](wifi-mute/README.md) | Mutes/unmutes audio automatically when connecting to configured Wi-Fi networks |
 
 ## Adding a utility

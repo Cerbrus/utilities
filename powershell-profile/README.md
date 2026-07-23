@@ -1,12 +1,12 @@
 # PowerShell profile
 
-PowerShell profile providing a shortcut to launch `claude` in a project: pick a folder under `C:\DEV` and Claude Code starts there.
+PowerShell profile providing a shortcut to launch `claude` in a project: pick a folder under your dev root and Claude Code starts there. The root defaults to `C:\DEV`; override it by setting `$env:DEV_ROOT`.
 
 ![The dev folder picker](assets/picker.png)
 
 ## What it does
 
-- **`dev [folder]`** (alias: **`agent`**) — jump to a project folder under `C:\DEV` and launch `claude` there.
+- **`dev [folder]`** (alias: **`agent`**) — jump to a project folder under the dev root and launch `claude` there.
     - `dev` with no argument opens an interactive picker (arrow keys, type-to-filter, `1`-`9` quick select, `Esc` to cancel).
     - `dev util` with a partial name suggests matching folders; a single match asks `Y/n`, multiple matches open the picker pre-filtered.
     - Subfolders work too: `dev proj/back` matches inside `C:\DEV\proj`, and `dev proj/` opens the picker on that folder's subfolders.

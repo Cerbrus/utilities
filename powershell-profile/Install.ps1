@@ -14,8 +14,9 @@ if (-not (Test-Path -LiteralPath $repoProfile)) {
 if (-not (Get-Command claude -ErrorAction SilentlyContinue)) {
     Write-Warning "'claude' CLI not found on PATH - 'dev' will fail to launch Claude Code until it is installed."
 }
-if (-not (Test-Path -LiteralPath 'C:\DEV')) {
-    Write-Warning "'C:\DEV' does not exist - the dev picker expects project folders there."
+$devRoot = if ($env:DEV_ROOT) { $env:DEV_ROOT.TrimEnd('\') } else { 'C:\DEV' }
+if (-not (Test-Path -LiteralPath $devRoot)) {
+    Write-Warning "'$devRoot' does not exist - the dev picker expects project folders there (override with `$env:DEV_ROOT)."
 }
 
 $comment = '# utilities repo profile'

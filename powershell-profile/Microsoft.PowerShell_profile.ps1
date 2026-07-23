@@ -79,9 +79,15 @@ function Select-DevFolder {
     }
 }
 
+# Root folder for the dev picker; override with $env:DEV_ROOT.
+function Get-DevRoot {
+    if ($env:DEV_ROOT) { return $env:DEV_ROOT.TrimEnd('\') }
+    return 'C:\DEV'
+}
+
 function dev {
     param([string]$folder)
-    $root = 'C:\DEV'
+    $root = Get-DevRoot
     $base = $root
     $prefix = ''
     $leaf = $folder
@@ -151,7 +157,7 @@ Register-ArgumentCompleter -CommandName dev, agent -ParameterName folder -Script
         $prefix = $wordToComplete.Substring(0, $idx + 1)
         $leaf = $wordToComplete.Substring($idx + 1)
     }
-    $base = Join-Path 'C:\DEV' ($prefix -replace '/', '\')
+    $base = Join-Path (Get-DevRoot) ($prefix -replace '/', '\')
     if (-not (Test-Path -LiteralPath $base -PathType Container)) { return }
     Get-ChildItem -Path $base -Directory |
         Where-Object { $_.Name -like "*$leaf*" } |

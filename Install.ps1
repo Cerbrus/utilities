@@ -30,6 +30,19 @@ if (Test-Path (Join-Path $repoRoot '.git')) {
     }
 }
 
+# Claude Code is needed by powershell-profile ('dev' launches it) and claude-statusline.
+if (-not (Get-Command claude -ErrorAction SilentlyContinue)) {
+    Write-Host ""
+    Write-Host "Claude Code ('claude') is not installed."
+    $answer = Read-Host "Install it now via the official installer (irm https://claude.ai/install.ps1 | iex)? [Y/n]"
+    if ($answer -eq '' -or $answer -match '^[yY]') {
+        Invoke-RestMethod https://claude.ai/install.ps1 | Invoke-Expression
+        Write-Host "Note: 'claude' may only be on PATH in new shells. Start it once so it creates its settings file, then re-run this script if claude-statusline was skipped."
+    } else {
+        Write-Warning "Skipping Claude Code install; the 'dev' command and claude-statusline need it."
+    }
+}
+
 # Discover per-utility installers (any direct subfolder containing Install.ps1).
 $installers = Get-ChildItem -Path $repoRoot -Directory |
     ForEach-Object { Join-Path $_.FullName 'Install.ps1' } |

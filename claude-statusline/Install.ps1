@@ -74,14 +74,11 @@ $settingsPath = Join-Path $claudeDir 'settings.json'
 # Forward slashes survive the JSON escaping in settings.json more readably.
 $command = "powershell -ExecutionPolicy Bypass -File `"$($scriptPath -replace '\\', '/')`""
 
-if (Test-Path -LiteralPath $settingsPath) {
-    $settings = Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json
-} else {
-    if (-not (Test-Path -LiteralPath $claudeDir)) {
-        New-Item -ItemType Directory -Path $claudeDir -Force | Out-Null
-    }
-    $settings = [pscustomobject]@{}
+if (-not (Test-Path -LiteralPath $settingsPath)) {
+    Write-Warning "Claude Code settings not found at $settingsPath - start Claude Code once, then re-run this installer. Skipping."
+    return
 }
+$settings = Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json
 
 $current = $null
 if ($settings.PSObject.Properties['statusLine']) {

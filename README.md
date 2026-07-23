@@ -4,7 +4,7 @@ Personal Windows utilities. One folder per utility, each self-contained with its
 
 ## Install
 
-Prerequisite: [git](https://git-scm.com/) (authentication for this private repo is handled by Git Credential Manager, which ships with Git for Windows).
+Prerequisite: [git](https://git-scm.com/) (authentication is handled by Git Credential Manager, which ships with Git for Windows). If [Claude Code](https://claude.com/claude-code) is missing, the installer offers to install it; individual utilities check their own dependencies and skip (with a message) when one is missing.
 
 Run in PowerShell:
 

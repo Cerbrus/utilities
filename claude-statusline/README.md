@@ -21,7 +21,7 @@ Status line for Claude Code. Renders, in one line:
 .\Install.ps1
 ```
 
-Updates the `statusLine` entry in `settings.json` (in `$env:CLAUDE_CONFIG_DIR`, defaulting to `~\.claude`), preserving all other settings. Idempotent. After moving this repo, re-run it: the entry references the script by absolute path.
+Updates the `statusLine` entry in `settings.json` (in `$env:CLAUDE_CONFIG_DIR`, defaulting to `~\.claude`), preserving all other settings. If `settings.json` doesn't exist yet (Claude Code never started), the installer skips with a message — start Claude Code once and re-run. Idempotent. After moving this repo, re-run it: the entry references the script by absolute path.
 
 ## Test
 

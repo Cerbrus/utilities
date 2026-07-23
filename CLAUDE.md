@@ -11,6 +11,7 @@ Personal Windows utilities, expected to live at `C:\DEV\utilities`. One folder p
 - **Non-elevated** — nothing may require admin. The powershell-profile installer deliberately uses a dot-sourcing stub instead of a symlink for this reason.
 - **Idempotent** — re-running updates/overwrites cleanly. The root one-liner doubles as the update mechanism.
 - **Standalone** — resolve paths via `$PSScriptRoot`, never the current directory.
+- **Self-checking** — verify your own dependencies; on a missing hard dependency, print a message and `return` (skip) instead of throwing. Soft dependencies get a `Write-Warning` but install anyway.
 - **Windows PowerShell 5.1 compatible** — no `&&`/`||` pipeline chains, no ternary/null-coalescing operators, pass `-Encoding utf8` explicitly to `Set-Content`/`Add-Content`/`Out-File`.
 
 ## Verifying changes

@@ -10,6 +10,14 @@ if (-not (Test-Path -LiteralPath $repoProfile)) {
     return
 }
 
+# Soft dependencies: the profile installs fine without them, but 'dev' needs both.
+if (-not (Get-Command claude -ErrorAction SilentlyContinue)) {
+    Write-Warning "'claude' CLI not found on PATH - 'dev' will fail to launch Claude Code until it is installed."
+}
+if (-not (Test-Path -LiteralPath 'C:\DEV')) {
+    Write-Warning "'C:\DEV' does not exist - the dev picker expects project folders there."
+}
+
 $comment = '# utilities repo profile'
 $dotSourceLine = ". '$repoProfile'"
 

@@ -24,6 +24,13 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# The event trigger needs the WLAN-AutoConfig log, which only exists with a Wi-Fi adapter.
+$wlanLog = Get-WinEvent -ListLog 'Microsoft-Windows-WLAN-AutoConfig/Operational' -ErrorAction SilentlyContinue
+if (-not $wlanLog) {
+    Write-Warning "WLAN-AutoConfig event log not found (no Wi-Fi on this machine?) - skipping wifi-mute install."
+    return
+}
+
 $configPath = Join-Path $PSScriptRoot 'networks.json'
 $scriptPath = Join-Path $PSScriptRoot 'Set-Mute.ps1'
 

@@ -27,7 +27,7 @@ Do not actually run installers while developing unless asked — they modify the
 
 ### powershell-profile
 
-`Microsoft.PowerShell_profile.ps1` is the single source of truth; user profiles just dot-source it (stub written by `Install.ps1`, which detects both PS 5.1 and PS 7+ and derives Documents via `[Environment]::GetFolderPath('MyDocuments')` for OneDrive redirection). `Select-DevFolder` is a raw-console picker (manual cursor positioning, ANSI escapes, `[Console]::ReadKey`); `dev`/`agent` builds on it to jump to a `C:\DEV` project and launch `claude`.
+`Microsoft.PowerShell_profile.ps1` is the single source of truth; user profiles just dot-source it (stub written by `Install.ps1`, which detects both PS 5.1 and PS 7+ and derives Documents via `[Environment]::GetFolderPath('MyDocuments')` for OneDrive redirection). The profile is a shortcut to launch `claude`: `dev`/`agent` picks a `C:\DEV` project folder and starts Claude Code there, built on `Select-DevFolder`, a raw-console picker (manual cursor positioning, ANSI escapes, `[Console]::ReadKey`).
 
 ### wifi-mute
 

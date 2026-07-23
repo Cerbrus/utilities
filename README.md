@@ -26,7 +26,7 @@ Everything runs non-elevated; no admin prompt required.
 
 | Utility | Description |
 |---------|-------------|
-| [powershell-profile](powershell-profile/README.md) | PowerShell profile with an interactive project picker for `C:\DEV` (`dev` / `agent`) |
+| [powershell-profile](powershell-profile/README.md) | Shortcut to launch `claude` in a `C:\DEV` project, via an interactive picker (`dev` / `agent`) |
 | [wifi-mute](wifi-mute/README.md) | Mutes/unmutes audio automatically when connecting to configured Wi-Fi networks |
 
 ## Adding a utility

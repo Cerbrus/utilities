@@ -1,6 +1,6 @@
 # PowerShell profile
 
-PowerShell profile with an interactive project picker for `C:\DEV`.
+PowerShell profile providing a shortcut to launch `claude` in a project: pick a folder under `C:\DEV` and Claude Code starts there.
 
 ## What it does
 

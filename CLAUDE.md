@@ -32,11 +32,11 @@ Do not actually run installers while developing unless asked — they modify the
 
 ### claude-statusline
 
-`pr-statusline.ps1` renders Claude Code's status line from the session JSON piped to stdin (branch, model, context bar, rate limits, caveman-mode flag). `Install.ps1` rewrites the `statusLine` entry in Claude Code's `settings.json` (respects `$env:CLAUDE_CONFIG_DIR`, defaults to `~\.claude`) to point at the repo copy, preserving all other settings via a JSON round-trip.
+`pr-statusline.ps1` renders Claude Code's status line from the session JSON piped to stdin (branch, model, context bar, rate limits, caveman-mode flag). Inside a Herdr app pane (`HC_TERMINAL_ID`) it also writes the context percentage to `data\claude-statusline\<terminal id>.json` under the app's folder, for the `agents-bots` mod. `Install.ps1` rewrites the `statusLine` entry in Claude Code's `settings.json` (respects `$env:CLAUDE_CONFIG_DIR`, defaults to `~\.claude`) to point at the repo copy, preserving all other settings via a JSON round-trip.
 
 ### herdr-config
 
-Repo copies of herdr files; `Install.ps1` copies them to where herdr reads them (`%APPDATA%\herdr\config.toml` for terminal herdr, `~\.config\herdr-app` for the Herdr app) and `Install.ps1 -Pull` copies live edits back. The app hot-reloads live files, so mod work happens in place and is pulled afterwards. `app/mods/spaces-folders` and `app/layouts/main-folders.json` are clones of the shipped `spaces` mod and `main` layout: the app never updates clones, and shipped mods must not be edited directly. `app/mods/space-open` is our own mod (the new-space picker). `app/mods/files-flat` and `app/mods/changes-flat` are clones of the shipped `files` and `changes` panels without their rounded border. Verify a mod with `herdr-app check <mod folder>` and `herdr-app shot`; the app's own reference is `~\.config\herdr-app\AGENTS.md`.
+Repo copies of herdr files; `Install.ps1` copies them to where herdr reads them (`%APPDATA%\herdr\config.toml` for terminal herdr, `~\.config\herdr-app` for the Herdr app) and `Install.ps1 -Pull` copies live edits back. The app hot-reloads live files, so mod work happens in place and is pulled afterwards. `app/mods/spaces-folders` and `app/layouts/main-folders.json` are clones of the shipped `spaces` mod and `main` layout: the app never updates clones, and shipped mods must not be edited directly. `app/mods/space-open` is our own mod (the new-space picker). `app/mods/files-flat` and `app/mods/changes-flat` are clones of the shipped `files` and `changes` panels without their rounded border. `app/mods/agents-bots` is a clone of the shipped `agents` list that draws agents as cards with a DiceBear avatar and a context bar; the bar reads `data\claude-statusline\<HC_TERMINAL_ID>.json` under the app's folder, which `pr-statusline.ps1` writes. Verify a mod with `herdr-app check <mod folder>` and `herdr-app shot`; the app's own reference is `~\.config\herdr-app\AGENTS.md`.
 
 Things the app's docs don't say, learned the hard way:
 
@@ -47,6 +47,7 @@ Things the app's docs don't say, learned the hard way:
 - A negative `gap` is ignored and touching 1px borders make a 2px seam. The layout gets 1px seams from a `gap` of 1 over a `border`-coloured `work-body` background, with no visible borders on panes or panels.
 - A pane's `focus` ring takes space: without a `border` of the same width the terminal resizes when focus moves. The pane border is 1px in the `background` colour for that reason.
 - `lone: false` drops the whole frame of a tab's only pane, header included, not just the border and focus ring.
+- `image()` only shows files under the app's folder, not URLs, draws an animated SVG as a still, and caches by path: a rewritten file keeps its old picture until the app restarts, so the cached avatar's file name carries a hash of the style. `agents-bots` fetches each avatar once into `datagents-botsvatars` and moves it with `.loop()`.
 - `herdr-app check` passes on mods that render nothing or mis-handle input; it only proves the mod loads. Clicking, dragging and popups need a person or a screenshot.
 
 ### wifi-mute

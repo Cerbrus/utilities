@@ -166,4 +166,18 @@ if ($Data -and $env:HERDR_ENV -and $env:HERDR_PANE_ID -and $env:HERDR_BIN_PATH) 
     }
 }
 
+if ($Data -and $env:HC_TERMINAL_ID -match '^[A-Za-z0-9][A-Za-z0-9_-]*$' -and $Data.context_window -and $null -ne $Data.context_window.used_percentage) {
+    $AppHome = if ($env:HERDR_APP_HOME) { $env:HERDR_APP_HOME } else { Join-Path $HOME ".config\herdr-app" }
+    if (Test-Path -LiteralPath $AppHome) {
+        try {
+            $ContextDir = Join-Path $AppHome "data\claude-statusline"
+            [void][System.IO.Directory]::CreateDirectory($ContextDir)
+            $ContextFile = Join-Path $ContextDir "$($env:HC_TERMINAL_ID).json"
+            $ContextJson = '{"pct":' + [int][math]::Round([double]$Data.context_window.used_percentage) + '}'
+            $Existing = if (Test-Path -LiteralPath $ContextFile) { [System.IO.File]::ReadAllText($ContextFile) } else { $null }
+            if ($Existing -ne $ContextJson) { [System.IO.File]::WriteAllText($ContextFile, $ContextJson) }
+        } catch {}
+    }
+}
+
 [Console]::Write(($Segments -join $Sep))

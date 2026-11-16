@@ -98,7 +98,7 @@ function hash(text) {
 
 const AVATAR_STYLE = hash(AVATAR_URL).slice(0, 6);
 const avatarKey = (a) => hash(`${a.space_name}\u0000${a.tab_name}`);
-const avatarFile = (key) => `${AVATAR_DIR}/${key}-${AVATAR_STYLE}.svg`;
+const avatarFile = (key, asleep) => `${AVATAR_DIR}/${key}-${AVATAR_STYLE}${asleep ? "-asleep" : ""}.svg`;
 
 function contextColor(pct) {
   const f = Math.max(0, Math.min(1, pct / 100));
@@ -124,6 +124,7 @@ export default class Agents extends View {
     if (!this.pendingPins.length) localStorage.removeItem("pins");
     this.migratingPins = new Set();
     cx.timer.every(30000, (cx) => cx.notify());
+    setShared("agents.changed", this.changed);
     this.avatars = new Set();
     this.loading = new Set();
     this.context = {};
@@ -154,28 +155,28 @@ export default class Agents extends View {
     this.context = context;
   }
 
-  loadAvatar(key, cx) {
-    if (this.loading.has(key) || checking()) return;
-    this.loading.add(key);
+  loadAvatar(file, url, cx) {
+    if (this.loading.has(file) || checking()) return;
+    this.loading.add(file);
     cx.spawn(async (cx) => {
-      const path = `${appHome()}/${avatarFile(key)}`;
+      const path = `${appHome()}/${file}`;
       if (!(await readTextFile(path).catch(() => null))) {
-        const response = await fetch(AVATAR_URL + key);
+        const response = await fetch(url);
         if (!response.ok) return;
         await writeTextFile(path, await response.text(), null);
       }
-      this.avatars.add(key);
+      this.avatars.add(file);
       cx.notify();
     });
   }
 
-  avatar(a, t, cx) {
-    const key = avatarKey(a);
-    if (!this.avatars.has(key)) {
-      this.loadAvatar(key, cx);
+  avatar(a, t, cx, asleep = false) {
+    const key = avatarKey(a), file = avatarFile(key, asleep);
+    if (!this.avatars.has(file)) {
+      this.loadAvatar(file, `${AVATAR_URL}${key}${asleep ? "&rotate=270" : ""}`, cx);
       return div().size(AVATAR).flex_none().bg(t.raised);
     }
-    const picture = image(avatarFile(key)).w(AVATAR).h(AVATAR).flex_none();
+    const picture = image(file).w(AVATAR).h(AVATAR).flex_none();
     if (a.status === "working") return picture.relative().loop("top", { from: -1.5, to: 1.5, period: 1100 });
     if (a.status === "idle") return picture.opacity(0.5);
     if (a.status !== "blocked") return picture;
@@ -206,6 +207,7 @@ export default class Agents extends View {
     const listed = new Set(list.map((a) => a.address));
     for (const [k, c] of Object.entries(this.changed)) if (!listed.has(k) && now - c.at > 30 * 86400000) delete this.changed[k];
     localStorage.setItem("changed", JSON.stringify(this.changed));
+    setShared("agents.changed", this.changed);
   }
 
   // Keep offline pins until their terminal returns, and keep each pending until
@@ -460,7 +462,7 @@ export default class Agents extends View {
             cx.stop_propagation();
             this.folded.has(a.address) ? this.folded.delete(a.address) : this.folded.add(a.address);
             cx.notify();
-          })).child(this.avatar(a, t, cx)))
+          })).child(this.avatar(a, t, cx, dormant.has(a.address))))
         .child(v_flex().flex_1().min_w(0).gap(6)
           .child(h_flex().h(18).gap(9).items_center()
             .child(h_flex().flex_1().min_w(0).gap(5).items_center()

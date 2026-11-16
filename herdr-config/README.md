@@ -14,6 +14,7 @@
 | `app/mods/agents-bots/` | `~\.config\herdr-app\mods\` | Clone of the shipped `agents` list that shows each agent as a card: a robot avatar, a context bar, the time since its status changed and the status. |
 | `app/mods/tabs-timer/` | `~\.config\herdr-app\mods\` | Clone of the shipped `tabs` bar that shows, on a tab whose agent is working, how long it has been working, and has the Keys button. |
 | `app/mods/cheatsheet/` | `~\.config\herdr-app\mods\` | Our own panel listing the keyboard shortcuts, opened with Keys next to Changes. |
+| `app/mods/prs-panel/` | `~\.config\herdr-app\mods\` | Our own bar under the terminals with the open Asito pull requests: one summary line that unfolds into Mine and To review. Needs an authenticated `gh`. |
 
 ### Spaces folders
 

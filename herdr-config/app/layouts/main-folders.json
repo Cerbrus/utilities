@@ -107,15 +107,15 @@
                   "background": "background",
                   "border": {
                     "width": 1,
-                    "color": "border"
+                    "color": "background"
                   },
                   "focus": {
                     "width": 1,
                     "color": "accent"
                   },
-                  "radius": 10,
-                  "gap": 8,
-                  "lone": true
+                  "radius": 0,
+                  "gap": 1,
+                  "lone": false
                 }
               }
             },
@@ -131,14 +131,14 @@
                       "id": "files",
                       "type": "block",
                       "content": {
-                        "mod": "files"
+                        "mod": "files-flat"
                       }
                     },
                     {
                       "id": "changes",
                       "type": "block",
                       "content": {
-                        "mod": "changes"
+                        "mod": "changes-flat"
                       }
                     }
                   ],
@@ -153,8 +153,9 @@
               "hidden": true
             }
           ],
-          "padding": 8,
-          "gap": 8
+          "padding": 0,
+          "gap": 1,
+          "background": "border"
         },
         {
           "id": "status",

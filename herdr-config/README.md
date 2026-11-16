@@ -7,9 +7,10 @@
 | Path | Goes to | What it is |
 |---|---|---|
 | `terminal/config.toml` | `%APPDATA%\herdr\config.toml` | Terminal herdr: theme colors, sidebar agent rows (model and context bar), sounds off. |
-| `app/layouts/main-folders.json` | `~\.config\herdr-app\layouts\` | Clone of the shipped `main` layout that shows the `spaces-folders` mod in the sidebar. |
+| `app/layouts/main-folders.json` | `~\.config\herdr-app\layouts\` | Clone of the shipped `main` layout that shows the `spaces-folders` mod in the sidebar, with square panes and panels that sit flush, 1px lines between them. A tab's only pane has no header or focus ring. |
 | `app/mods/spaces-folders/` | `~\.config\herdr-app\mods\` | Clone of the shipped `spaces` mod that draws the spaces list as a file tree of collapsible folders. |
 | `app/mods/space-open/` | `~\.config\herdr-app\mods\` | Picker that opens a folder as a new space running `claude`. |
+| `app/mods/files-flat/`, `app/mods/changes-flat/` | `~\.config\herdr-app\mods\` | Clones of the shipped `files` and `changes` panels without their rounded border; the layout draws the lines between them. |
 
 ### Spaces folders
 
@@ -29,7 +30,7 @@ The `+` in the Spaces header and `ctrl-shift-n` open the `space-open` picker: th
 
 `Install.ps1` rebinds `ctrl-shift-n` in the app's `keys.json` from `space.new` to the picker. "New space" in the tab bar's `+` menu and in the command palette is still Herdr's own and starts a plain shell.
 
-The layout and the `spaces-folders` mod were cloned from Herdr app 0.1.16 (`cloned_from` in the files). Herdr never updates clones, so changes to the shipped `main` layout or `spaces` mod have to be merged in by hand.
+The layout and the `spaces-folders`, `files-flat` and `changes-flat` mods were cloned from Herdr app 0.1.16 (`cloned_from` in the files). Herdr never updates clones, so changes to the shipped `main` layout or `spaces`, `files` and `changes` mods have to be merged in by hand.
 
 ## Install
 

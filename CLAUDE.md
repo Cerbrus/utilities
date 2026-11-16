@@ -36,7 +36,7 @@ Do not actually run installers while developing unless asked — they modify the
 
 ### herdr-config
 
-Repo copies of herdr files; `Install.ps1` copies them to where herdr reads them (`%APPDATA%\herdr\config.toml` for terminal herdr, `~\.config\herdr-app` for the Herdr app) and `Install.ps1 -Pull` copies live edits back. The app hot-reloads live files, so mod work happens in place and is pulled afterwards. `app/mods/spaces-folders` and `app/layouts/main-folders.json` are clones of the shipped `spaces` mod and `main` layout: the app never updates clones, and shipped mods must not be edited directly. `app/mods/space-open` is our own mod (the new-space picker). Verify a mod with `herdr-app check <mod folder>` and `herdr-app shot`; the app's own reference is `~\.config\herdr-app\AGENTS.md`.
+Repo copies of herdr files; `Install.ps1` copies them to where herdr reads them (`%APPDATA%\herdr\config.toml` for terminal herdr, `~\.config\herdr-app` for the Herdr app) and `Install.ps1 -Pull` copies live edits back. The app hot-reloads live files, so mod work happens in place and is pulled afterwards. `app/mods/spaces-folders` and `app/layouts/main-folders.json` are clones of the shipped `spaces` mod and `main` layout: the app never updates clones, and shipped mods must not be edited directly. `app/mods/space-open` is our own mod (the new-space picker). `app/mods/files-flat` and `app/mods/changes-flat` are clones of the shipped `files` and `changes` panels without their rounded border. Verify a mod with `herdr-app check <mod folder>` and `herdr-app shot`; the app's own reference is `~\.config\herdr-app\AGENTS.md`.
 
 Things the app's docs don't say, learned the hard way:
 
@@ -44,6 +44,9 @@ Things the app's docs don't say, learned the hard way:
 - A popup is as tall as its content, so a scroll container (`overflow_y_scrollbar` with `min_h(0)`) inside one collapses to nothing and the popup shows empty.
 - `cx.notify()` in a mouse-down handler redraws the element and swallows its `on_click`. Folder headers therefore fold on mouse-up, comparing against the header that was pressed.
 - Elements only exist after a redraw: the drop zones on folder headers are drawn while a header is held, so the press has to `cx.notify()`.
+- A negative `gap` is ignored and touching 1px borders make a 2px seam. The layout gets 1px seams from a `gap` of 1 over a `border`-coloured `work-body` background, with no visible borders on panes or panels.
+- A pane's `focus` ring takes space: without a `border` of the same width the terminal resizes when focus moves. The pane border is 1px in the `background` colour for that reason.
+- `lone: false` drops the whole frame of a tab's only pane, header included, not just the border and focus ring.
 - `herdr-app check` passes on mods that render nothing or mis-handle input; it only proves the mod loads. Clicking, dragging and popups need a person or a screenshot.
 
 ### wifi-mute

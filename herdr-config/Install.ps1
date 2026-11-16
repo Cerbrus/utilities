@@ -22,6 +22,8 @@ if ($env:HERDR_APP_HOME) { $appHome = $env:HERDR_APP_HOME }
 $terminalConfig = Join-Path $env:APPDATA 'herdr\config.toml'
 if ($env:HERDR_CONFIG_PATH) { $terminalConfig = $env:HERDR_CONFIG_PATH }
 
+if (-not $Pull) { & (Join-Path $PSScriptRoot 'Merge-Upstream.ps1') }
+
 $repoApp = Join-Path $PSScriptRoot 'app'
 $pairs = @()
 $pairs += [pscustomobject]@{ Repo = Join-Path $PSScriptRoot 'terminal\config.toml'; Live = $terminalConfig; Part = 'terminal' }
@@ -62,6 +64,10 @@ foreach ($pair in $pairs) {
         Write-Warning "Missing, skipped: $from"
         continue
     }
+    if (-not $Pull -and [System.IO.Path]::GetExtension($from) -in '.js', '.json' -and (Select-String -LiteralPath $from -Pattern '^<<<<<<< ' -Quiet)) {
+        Write-Warning "Unresolved merge conflict, skipped: $from"
+        continue
+    }
     $parent = Split-Path -Parent $to
     if (-not (Test-Path -LiteralPath $parent)) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
     if ((Test-Path -LiteralPath $to) -and (Get-FileHash -LiteralPath $from).Hash -eq (Get-FileHash -LiteralPath $to).Hash) {
@@ -79,6 +85,11 @@ if (-not $Pull -and -not $skip['app'] -and (Test-Path -LiteralPath $keysPath)) {
     if ($bound -ne $keys) {
         [System.IO.File]::WriteAllText($keysPath, $bound)
         Write-Host "rebound    ctrl-shift-n to the space-open picker in $keysPath"
+    }
+    $previous = '"alt-up": "agent.prev",'
+    if ($bound -notmatch '"alt-a"' -and $bound.Contains($previous)) {
+        [System.IO.File]::WriteAllText($keysPath, $bound.Replace($previous, $previous + ' "alt-a": "agents-bots.top",'))
+        Write-Host "bound      alt-a to the top agent in $keysPath"
     }
 }
 

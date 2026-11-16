@@ -44,9 +44,9 @@ Keys, next to Files and Changes in the tab bar, opens a panel with every shortcu
 
 The `+` in the Spaces header and `ctrl-shift-n` open the `space-open` picker: the folders under the roots in `app/mods/space-open/roots.js`, narrowed as you type; a typed full path is offered as it is. Enter opens the folder as a space that runs `ARGV` from the same file (`claude`), or shows the space already open there. The new space is loose, unless the picker was opened from a folder's right-click menu.
 
-`Install.ps1` rebinds `ctrl-shift-n` in the app's `keys.json` from `space.new` to the picker. "New space" in the tab bar's `+` menu and in the command palette is still Herdr's own and starts a shell; the [PowerShell profile](../powershell-profile/README.md) launches `claude` in it, as in any space's first terminal.
+`Install.ps1` rebinds `ctrl-shift-n` in the app's `keys.json` from `space.new` to the picker, and binds `alt-a` to `agents-bots.top`, which shows the agent at the top of the Agents list. "New space" in the tab bar's `+` menu and in the command palette is still Herdr's own and starts a shell; the [PowerShell profile](../powershell-profile/README.md) launches `claude` in it, as in any space's first terminal.
 
-The layout and the `spaces-folders`, `files-flat`, `changes-flat`, `agents-bots` and `tabs-timer` mods were cloned from Herdr app 0.1.16 (`cloned_from` in the files). Herdr never updates clones, so changes to the shipped `main` layout or `spaces`, `files`, `changes`, `agents` and `tabs` mods have to be merged in by hand.
+The layout and the `spaces-folders`, `files-flat`, `changes-flat`, `agents-bots` and `tabs-timer` mods were cloned from Herdr app 0.1.16 (`cloned_from` in the files). Herdr never updates clones, so changes to the shipped `main` layout or `spaces`, `files`, `changes`, `agents` and `tabs` mods have to be merged in; see [After a Herdr update](#after-a-herdr-update).
 
 ## Install
 
@@ -60,6 +60,17 @@ Copies every file to its place. Non-elevated and idempotent; a part whose herdr 
 herdr server reload-config                        # terminal herdr
 herdr-app do layout.switch --name main-folders    # Herdr app
 ```
+
+## After a Herdr update
+
+```powershell
+.\Merge-Upstream.ps1 -Check    # what changed, and how it would merge
+.\Merge-Upstream.ps1           # merge it into the clones in the repo
+```
+
+`upstream/` holds every shipped file a clone was made from, as it was when the clone was last brought up to date. `Merge-Upstream.ps1` compares those with what the installed Herdr app ships now. A changed file is merged into its clone with a three-way merge (`git merge-file`), the copy in `upstream/` is renewed and the clone's `cloned_from` version is raised. It reports files Herdr added or dropped, and runs `herdr-app check` on a merged mod.
+
+`Install.ps1` runs it first, so every install says whether the shipped files changed. A merge with conflicts leaves `<<<<<<<` markers in the repo file; `Install.ps1` skips such a file until the markers are resolved. A clean merge only proves the text fits: try the mod in the app afterwards.
 
 ## Changing things
 

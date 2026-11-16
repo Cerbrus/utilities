@@ -2,7 +2,7 @@
 
 import { View, div, image, svg } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { agents, terminals, panes, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, window, layout, appHome, checking, exec, readTextFile, writeTextFile, watchFolder } from "herdr";
+import { agents, terminals, panes, focused, spaces, run, theme, shared, setShared, setAgentOrder, nextCommand, openOverlay, closeOverlay, props, window, layout, appHome, checking, exec, readTextFile, writeTextFile, watchFolder } from "herdr";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -115,6 +115,7 @@ async function makeFolder(path) {
 export default class Agents extends View {
   init(_props, cx) {
     if (props()?.sortMenu) return;
+    cx.spawn(async () => { for (;;) { if (await nextCommand() === "top" && this.top) run("pane.focus", { pane: this.top.pane }); } });
     this.folded = new Set(["inactive"]);
     // Each agent's last state and when it changed (ms), kept across restarts.
     try { this.changed = JSON.parse(localStorage.getItem("changed") ?? "{}"); } catch { this.changed = {}; }
@@ -345,6 +346,7 @@ export default class Agents extends View {
     const dormant = new Set(inactive.map((a) => a.address));
     const rest = list.filter((a) => !a.pinned && !dormant.has(a.address));
     list = [...pinned, ...rest, ...inactive];
+    this.top = list[0];
     setAgentOrder(list.map((a) => a.address));
 
     const withKids = (a, i) => {

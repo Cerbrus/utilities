@@ -85,6 +85,16 @@ function Get-DevRoot {
     return 'C:\DEV'
 }
 
+function Get-DevNestedFolders {
+    $root = Get-DevRoot
+    foreach ($parent in '~Cerbrus') {
+        $dir = Join-Path $root $parent
+        if (Test-Path -LiteralPath $dir -PathType Container) {
+            Get-ChildItem -LiteralPath $dir -Directory | ForEach-Object { "$parent\$($_.Name)" }
+        }
+    }
+}
+
 function dev {
     param([string]$folder)
     $root = Get-DevRoot
@@ -107,8 +117,10 @@ function dev {
         }
     }
     $names = @(Get-ChildItem $base -Directory | Select-Object -ExpandProperty Name)
+    $nested = if ($prefix) { @() } else { @(Get-DevNestedFolders) }
+    $nestedExact = @($nested | Where-Object { (Split-Path $_ -Leaf) -eq $leaf })
     if (-not $folder) {
-        $pick = Select-DevFolder (@('DEV root') + $names)
+        $pick = Select-DevFolder (@('DEV root') + $names + $nested)
         if (-not $pick) { return }
         $path = if ($pick -eq 'DEV root') { $root } else { Join-Path $root $pick }
     } elseif (-not $leaf) {
@@ -122,10 +134,12 @@ function dev {
         }
     } elseif ($names -contains $leaf) {
         $path = Join-Path $base $leaf
+    } elseif ($nestedExact.Count -eq 1) {
+        $path = Join-Path $base $nestedExact[0]
     } else {
-        $suggestions = @($names |
-            Where-Object { $_.IndexOf($leaf, [StringComparison]::OrdinalIgnoreCase) -ge 0 } |
-            Sort-Object @{ Expression = { -not $_.StartsWith($leaf, 'OrdinalIgnoreCase') } }, { $_ })
+        $suggestions = @(($names + $nested) |
+            Where-Object { (Split-Path $_ -Leaf).IndexOf($leaf, [StringComparison]::OrdinalIgnoreCase) -ge 0 } |
+            Sort-Object @{ Expression = { -not (Split-Path $_ -Leaf).StartsWith($leaf, 'OrdinalIgnoreCase') } }, { $_ })
         if ($suggestions.Count -eq 1) {
             Write-Host "Use '$prefix$($suggestions[0])'? (Y/n) " -NoNewline -ForegroundColor Cyan
             $key = [Console]::ReadKey($true)
@@ -144,7 +158,16 @@ function dev {
             return
         }
     }
-    Set-Location $path; Clear-Host; claude
+    Set-Location $path
+    if ($env:HERDR_ENV -and $env:HERDR_WORKSPACE_ID) {
+        try {
+            $workspace = (& $env:HERDR_BIN_PATH workspace get $env:HERDR_WORKSPACE_ID | ConvertFrom-Json).result.workspace
+            if ($workspace.pane_count -eq 1) {
+                & $env:HERDR_BIN_PATH workspace rename $env:HERDR_WORKSPACE_ID (Split-Path $path -Leaf) | Out-Null
+            }
+        } catch {}
+    }
+    Clear-Host; claude
 }
 Set-Alias agent dev
 
@@ -159,11 +182,10 @@ Register-ArgumentCompleter -CommandName dev, agent -ParameterName folder -Script
     }
     $base = Join-Path (Get-DevRoot) ($prefix -replace '/', '\')
     if (-not (Test-Path -LiteralPath $base -PathType Container)) { return }
-    Get-ChildItem -Path $base -Directory |
-        Where-Object { $_.Name -like "*$leaf*" } |
-        Sort-Object @{ Expression = { -not $_.Name.StartsWith($leaf, 'OrdinalIgnoreCase') } }, Name |
-        ForEach-Object {
-            $text = "$prefix$($_.Name)"
-            if ($text -match '\s') { "'$text'" } else { $text }
-        }
+    $items = @(Get-ChildItem -Path $base -Directory | ForEach-Object { "$prefix$($_.Name)" })
+    if (-not $prefix) { $items += @(Get-DevNestedFolders | ForEach-Object { $_ -replace '\\', '/' }) }
+    $items |
+        Where-Object { (Split-Path $_ -Leaf) -like "*$leaf*" } |
+        Sort-Object @{ Expression = { -not (Split-Path $_ -Leaf).StartsWith($leaf, 'OrdinalIgnoreCase') } }, { $_ } |
+        ForEach-Object { if ($_ -match '\s') { "'$_'" } else { $_ } }
 }

@@ -6,6 +6,7 @@ const MODIFIERS = ["ctrl", "alt", "shift", "cmd", "fn"];
 const MODIFIER_LABELS = { ctrl: "Ctrl", alt: "Alt", shift: "Shift", cmd: "Win", fn: "Fn" };
 const KEY_LABELS = { left: "←", right: "→", up: "↑", down: "↓", pageup: "PgUp", pagedown: "PgDn", backspace: "Backspace", insert: "Ins", delete: "Del", escape: "Esc", enter: "Enter", tab: "Tab", space: "Space" };
 const GROUPS = ["space", "tab", "pane", "agent", "terminal", "layout", "app", "mod"];
+const MOD_COMMANDS = { "agents-bots.top": { group: "agent", label: "Show the agent at the top of the Agents list" } };
 const GROUP_LABELS = { space: "Spaces", tab: "Tabs", pane: "Panes", agent: "Agents", terminal: "Terminal", layout: "Layout", app: "App", mod: "Mods", other: "Other" };
 
 function chord(text) {
@@ -34,6 +35,7 @@ function describe(action, about) {
   if (action === "terminal") return { group: "terminal", label: "Goes to the program" };
   if (action.startsWith("send:")) return { group: "terminal", label: "Types a control sequence into the program" };
   const split = action.indexOf(":"), name = split < 0 ? action : action.slice(0, split), detail = split < 0 ? null : action.slice(split + 1);
+  if (MOD_COMMANDS[name]) return { ...MOD_COMMANDS[name], detail, name };
   const group = name.split(".")[0], text = about.get(name);
   return { group: GROUPS.includes(group) ? group : "other", label: text ? text.split(/\. | \(|, | to the "/)[0].replace(/\.$/, "") : name, detail, name };
 }

@@ -189,17 +189,33 @@ Register-ArgumentCompleter -CommandName dev, agent -ParameterName folder -Script
         Sort-Object @{ Expression = { -not (Split-Path $_ -Leaf).StartsWith($leaf, 'OrdinalIgnoreCase') } }, { $_ } |
         ForEach-Object { if ($_ -match '\s') { "'$_'" } else { $_ } }
 }
+function Test-HerdrOnlyPaneInTab {
+    if (-not ($env:HERDR_ENV -and $env:HERDR_TAB_ID -and $env:HERDR_BIN_PATH)) { return $false }
+    try {
+        $tab = (& $env:HERDR_BIN_PATH tab get $env:HERDR_TAB_ID | ConvertFrom-Json).result.tab
+    } catch { return $false }
+    return $tab.pane_count -eq 1
+}
+
+function Test-HerdrAppFirstTerminalInSpace {
+    if (-not $env:HC_TERMINAL_ID) { return $false }
+    if (-not (Get-Command hc -ErrorAction SilentlyContinue)) { return $false }
+    try {
+        $space = (hc get $env:HC_TERMINAL_ID --json | ConvertFrom-Json).labels.'herdr.space'
+        if (-not $space) { return $false }
+        $terminals = @((hc ls --json --label "herdr.space=$space" | ConvertFrom-Json).terminals)
+    } catch { return $false }
+    return $terminals.Count -eq 1
+}
+
 function Start-HerdrClaude {
-    if (-not ($env:HERDR_ENV -and $env:HERDR_TAB_ID -and $env:HERDR_BIN_PATH)) { return }
     if ($env:CLAUDECODE -or $env:DEV_NO_AUTO_CLAUDE -or $env:DEV_AUTO_CLAUDE_STARTED) { return }
     $shellArgs = [Environment]::GetCommandLineArgs()
     if ($shellArgs -match '^-(noni|noninteractive)$') { return }
     if (($shellArgs -match '^-(c|command|f|file|e|ec|encodedcommand)$') -and -not ($shellArgs -match '^-(noe|noexit)$')) { return }
+    if ($shellArgs -match '\bclaude\b') { return }
     if (-not (Get-Command claude -ErrorAction SilentlyContinue)) { return }
-    try {
-        $tab = (& $env:HERDR_BIN_PATH tab get $env:HERDR_TAB_ID | ConvertFrom-Json).result.tab
-    } catch { return }
-    if ($tab.pane_count -ne 1) { return }
+    if (-not ((Test-HerdrOnlyPaneInTab) -or (Test-HerdrAppFirstTerminalInSpace))) { return }
     $env:DEV_AUTO_CLAUDE_STARTED = '1'
     claude
 }

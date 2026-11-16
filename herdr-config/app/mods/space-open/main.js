@@ -9,6 +9,8 @@ import { v_flex, h_flex, InputState, Input, ScrollHandle } from "gpui-base";
 import { spaces, run, exec, theme, props, closeOverlay, checking, shared, setShared } from "herdr";
 import { ROOTS, ARGV } from "./roots.js";
 
+const ROW = 32, AROUND = 150, WINDOW_SHARE = 0.7;
+
 const same = (path) => String(path ?? "").replace(/\//g, "\\").replace(/\\+$/, "").toLowerCase();
 const leaf = (path) => path.replace(/[\\/]+$/, "").split(/[\\/]/).pop();
 const typedPath = (text) => /^([a-z]:[\\/]|\\\\|~[\\/])/i.test(text);
@@ -75,6 +77,7 @@ export default class SpaceOpen extends View {
     const rows = this.rows();
     const open = new Set(spaces().filter((s) => !s.machine).map((s) => same(s.folder)));
     const into = (shared("spaces.folders")?.folders ?? []).find((f) => f.id === props()?.folder)?.name;
+    const room = Math.max(ROW * 4, Math.floor((window.viewport_size().height * WINDOW_SHARE - AROUND) / ROW) * ROW);
     return v_flex().id("space-open").track_focus(this.handle).w_full().min_h(0).p(18).gap(10).bg(t.popover).text_size(13)
       .on_key_down((e, cx) => {
         if (e.key === "escape") return this.close();
@@ -90,10 +93,10 @@ export default class SpaceOpen extends View {
       .child(h_flex().h(36).flex_none().px(10).gap(8).items_center().rounded(9).border_1().border_color(t.accent).bg(t.background)
         .child(svg("mods/workspace-chrome/search.svg").size(15).text_color(t.dim))
         .child(Input.new(this.input).flex_1().h_full().text_size(12.8).text_color(t.foreground)))
-      .child(v_flex().id("so-list").h(352).min_h(0).overflow_y_scrollbar().track_scroll(this.scroll)
+      .child(v_flex().id("so-list").h(Math.min(room, Math.max(1, rows.length) * ROW)).min_h(0).overflow_y_scrollbar().track_scroll(this.scroll)
         .when(!rows.length, (el) => el.child(div().px(10).py(8).text_color(t.dim)
           .child(this.loading ? "Looking for folders…" : "No folder matches. Type a full path to open it.")))
-        .children(rows.map((r, i) => h_flex().id(`so-${i}`).h(32).flex_none().px(10).gap(10).rounded(7).items_center().cursor_pointer()
+        .children(rows.map((r, i) => h_flex().id(`so-${i}`).h(ROW).flex_none().px(10).gap(10).rounded(7).items_center().cursor_pointer()
           .when(i === this.at, (el) => el.bg(t.selected))
           .hover((s) => s.bg(t.hover))
           .on_click(() => this.go(r))

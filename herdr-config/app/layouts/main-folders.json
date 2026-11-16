@@ -140,6 +140,13 @@
                       "content": {
                         "mod": "changes-flat"
                       }
+                    },
+                    {
+                      "id": "cheatsheet",
+                      "type": "block",
+                      "content": {
+                        "mod": "cheatsheet"
+                      }
                     }
                   ],
                   "active": "files"

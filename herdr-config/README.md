@@ -12,7 +12,8 @@
 | `app/mods/space-open/` | `~\.config\herdr-app\mods\` | Picker that opens a folder as a new space running `claude`. |
 | `app/mods/files-flat/`, `app/mods/changes-flat/` | `~\.config\herdr-app\mods\` | Clones of the shipped `files` and `changes` panels without their rounded border; the layout draws the lines between them. |
 | `app/mods/agents-bots/` | `~\.config\herdr-app\mods\` | Clone of the shipped `agents` list that shows each agent as a card: a robot avatar, a context bar, the time since its status changed and the status. |
-| `app/mods/tabs-timer/` | `~\.config\herdr-app\mods\` | Clone of the shipped `tabs` bar that shows, on a tab whose agent is working, how long it has been working. |
+| `app/mods/tabs-timer/` | `~\.config\herdr-app\mods\` | Clone of the shipped `tabs` bar that shows, on a tab whose agent is working, how long it has been working, and has the Keys button. |
+| `app/mods/cheatsheet/` | `~\.config\herdr-app\mods\` | Our own panel listing the keyboard shortcuts, opened with Keys next to Changes. |
 
 ### Spaces folders
 
@@ -34,11 +35,15 @@ The context bar reads `~\.config\herdr-app\data\claude-statusline\<terminal id>.
 
 `agents-bots` publishes when each agent's status last changed as `agents.changed` in the shared state; `tabs-timer` reads it for the timer on a working tab, so the timer needs the agents list in the layout.
 
+### Keys panel
+
+Keys, next to Files and Changes in the tab bar, opens a panel with every shortcut from the app's `keys.json`, grouped by where it works and what it acts on, each with the command's own description. The filter narrows the list by description, command or key.
+
 ### Opening a space
 
 The `+` in the Spaces header and `ctrl-shift-n` open the `space-open` picker: the folders under the roots in `app/mods/space-open/roots.js`, narrowed as you type; a typed full path is offered as it is. Enter opens the folder as a space that runs `ARGV` from the same file (`claude`), or shows the space already open there. The new space is loose, unless the picker was opened from a folder's right-click menu.
 
-`Install.ps1` rebinds `ctrl-shift-n` in the app's `keys.json` from `space.new` to the picker. "New space" in the tab bar's `+` menu and in the command palette is still Herdr's own and starts a plain shell.
+`Install.ps1` rebinds `ctrl-shift-n` in the app's `keys.json` from `space.new` to the picker. "New space" in the tab bar's `+` menu and in the command palette is still Herdr's own and starts a shell; the [PowerShell profile](../powershell-profile/README.md) launches `claude` in it, as in any space's first terminal.
 
 The layout and the `spaces-folders`, `files-flat`, `changes-flat`, `agents-bots` and `tabs-timer` mods were cloned from Herdr app 0.1.16 (`cloned_from` in the files). Herdr never updates clones, so changes to the shipped `main` layout or `spaces`, `files`, `changes`, `agents` and `tabs` mods have to be merged in by hand.
 

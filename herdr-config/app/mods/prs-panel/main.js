@@ -1,17 +1,19 @@
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex, Scrollbar } from "gpui-base";
-import { exec, theme, run, layout, props, checking, spaces, agents, panes, notify } from "herdr";
+import { exec, theme, run, layout, props, checking, spaces, agents, panes, notify, openOverlay, closeOverlay, shared, setShared } from "herdr";
 
 const OWNER = "Baseflow";
 const REPOS = /^(asito|mtp)-/;
 const BAR = 28, SEAM = 1, ROW = 24, MAX_ROWS = 8;
 const REFRESH_MS = 5 * 60 * 1000, TICK_MS = 60 * 1000;
-const ROOTS = ["C:\DEV", "C:\DEV\~Cerbrus"];
+const ROOTS = ["C:\\DEV", "C:\\DEV\\~Cerbrus"];
 const ARGV = ["claude"];
 const AGENT_WAIT_MS = 90 * 1000;
+const MENU_ROW = 30, REVIEW_REQUEST = "prs.review";
 const reviewText = (item) => `Review #${item.number}`;
 const URGENCY = ["red", "yellow", "green", "draft", "waiting"];
 const FLAG_GLYPHS = { red: "●", yellow: "●", green: "●", draft: "✎", waiting: "○" };
+const FLAG_WORDS = { red: "need your action", yellow: "need attention", green: "ready or done by you", draft: "draft", waiting: "waiting on others" };
 const REVIEW_GLYPHS = { REQUESTED: "◷", APPROVED: "✓", CHANGES_REQUESTED: "✗", COMMENTED: "…" };
 const REVIEW_WORDS = { REQUESTED: "requested", APPROVED: "approved", CHANGES_REQUESTED: "changes requested", COMMENTED: "commented" };
 
@@ -34,7 +36,7 @@ fragment pr on PullRequest {
 
 const find = (node, id) => !node ? null : node.id === id ? node : (node.children ?? []).map((child) => find(child, id)).find(Boolean) ?? null;
 const human = (person) => !/copilot/i.test(person?.login ?? "copilot");
-const folderName = (path) => (path ?? "").replace(/[\/]+$/, "").split(/[\/]/).pop().toLowerCase();
+const folderName = (path) => (path ?? "").replace(/[\\/]+$/, "").split(/[\\/]/).pop().toLowerCase();
 const firstName = (person) => person.name?.split(" ")[0] || person.login;
 
 function age(iso, now) {
@@ -101,7 +103,7 @@ export default class PullRequests extends View {
     this.mine = [];
     this.review = [];
     this.loading = false;
-    if (checking()) return;
+    if (checking() || props()?.mode === "menu") return;
     cx.timer.every(TICK_MS, (cx) => { if (Date.now() - (this.started ?? 0) >= REFRESH_MS) this.refresh(cx); else cx.notify(); });
     this.refresh(cx);
   }
@@ -151,7 +153,7 @@ export default class PullRequests extends View {
 
   async folderFor(repo) {
     for (const root of ROOTS) {
-      const folder = `${root}\${repo}`;
+      const folder = `${root}\\${repo}`;
       const found = await exec("cmd", ["/c", "dir", "/b", "/ad", folder]).catch(() => null);
       if (found && !found.code) return folder;
     }
@@ -225,7 +227,10 @@ export default class PullRequests extends View {
       .on_click(() => this.toggle())
       .child(div().flex_none().w(10).text_color(t.dim).child(collapsed ? "▸" : "▾"))
       .child(div().flex_none().font_semibold().child("PRs"))
-      .child(h_flex().flex_none().gap(8).items_center().children(this.counts(t)))
+      .when(Boolean(all.length), (el) => el.child(h_flex().id("prs-counts").flex_none().gap(8).items_center()
+        .tooltip(URGENCY.map((flag) => [flag, all.filter((item) => item.flag === flag).length]).filter(([, count]) => count)
+          .map(([flag, count]) => `${FLAG_GLYPHS[flag]} ${count} ${FLAG_WORDS[flag]}`).join("\n"))
+        .children(this.counts(t))))
       .when(!this.loaded && !this.error, (el) => el.child(div().text_color(t.dim).child("Loading")))
       .when(Boolean(this.loaded) && !all.length, (el) => el.child(div().text_color(t.dim).child("No open pull requests")))
       .when(Boolean(this.error), (el) => el.child(div().flex_1().min_w(0).truncate().text_color(t.ansi1).child(this.error)))
@@ -252,6 +257,8 @@ export default class PullRequests extends View {
       .hover((s) => s.bg(t.hover))
       .tooltip([item.action, `${item.repo}#${item.number}`, people].filter(Boolean).join("\n"))
       .on_click((_e, cx) => cx.open_url(item.url))
+      .on_mouse_down("right", () => openOverlay({ mod: "prs-panel", kind: "popup", width: 220, height: MENU_ROW * 2 + 12,
+        props: { mode: "menu", item: { repo: item.repo, number: item.number, url: item.url } } }))
       .child(div().flex_none().w(12).text_color(colors[item.flag]).child(FLAG_GLYPHS[item.flag]))
       .child(item.kind === "review"
         ? div().id(`review-${item.id}`).flex_none().w(138).truncate().text_color(t.foreground)
@@ -276,8 +283,26 @@ export default class PullRequests extends View {
         .child(Scrollbar.vertical(`prs-${key}`).absolute().inset_0()));
   }
 
-  render() {
-    const t = theme(), collapsed = this.collapsed(), now = Date.now();
+  menu(t) {
+    const { item, overlay } = props();
+    const option = (id, label, act) => h_flex().id(id).h(MENU_ROW).flex_none().px(10).items_center().rounded(6).cursor_pointer()
+      .hover((s) => s.bg(t.hover))
+      .on_click((_e, cx) => { act(cx); closeOverlay(overlay); })
+      .child(label);
+    return v_flex().id("prs-menu").p(6).text_size(13).text_color(t.foreground)
+      .child(option("prs-menu-open", "Open in browser", (cx) => cx.open_url(item.url)))
+      .child(option("prs-menu-review", `Review #${item.number} in a new tab`, () => setShared(REVIEW_REQUEST, { ...item, at: Date.now() })));
+  }
+
+  render(cx) {
+    const t = theme();
+    if (props()?.mode === "menu") return this.menu(t);
+    const request = shared(REVIEW_REQUEST);
+    if (request && request.at !== this.handled) {
+      this.handled = request.at;
+      cx.timer.after(0, (cx) => { setShared(REVIEW_REQUEST, null); this.startReview(request, cx); });
+    }
+    const collapsed = this.collapsed(), now = Date.now();
     return v_flex().id("prs").size_full().min_h(0).overflow_hidden().bg(t.background).text_color(t.foreground).text_size(12)
       .child(div().h(SEAM).flex_none().bg(t.border))
       .child(this.bar(t, collapsed))

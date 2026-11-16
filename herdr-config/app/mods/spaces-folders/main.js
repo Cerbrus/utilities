@@ -546,7 +546,7 @@ export default class Spaces extends View {
     };
     for (const f of childrenOf(st, null)) draw(f, []);
     const filed = dragging && Boolean(st.of[this.pressed]);
-    items.push(v_flex().id("spaces-loose").flex_1().min_h(40).px(8).pt(4)
+    items.push(v_flex().id("spaces-loose").flex_1().min_h(filed ? 40 : 0).px(8).pt(filed ? 4 : 0)
       .on_mouse_move(hover("loose"))
       .on_mouse_up("left", drop(null))
       .when(filed && this.over === "loose", (el) => el
@@ -709,7 +709,7 @@ export default class Spaces extends View {
           .child(div().id("space-new").size(26).flex_none().flex().items_center().justify_center().rounded(6).hover(s => s.bg(t.hover).text_color(t.foreground))
             .tooltip("Open a folder as a space")
             .on_click(() => run("mod.open", { name: "space-open" })).child(svg("mods/workspace-chrome/plus.svg").size(14)))))
-      .child(v_flex().flex_1().min_h(0).px(collapsed ? 0 : 8).pb(14).overflow_y_scrollbar().mode("always").track_scroll(this.scroll)
+      .child(v_flex().flex_1().min_h(0).px(collapsed ? 0 : 8).overflow_y_scrollbar().mode("always").track_scroll(this.scroll)
         // A block above (another mod's) growing, or the window resizing, shrinks this list and can push the active space out.
         .on_size_change((_size, cx) => { if (this.activeAt >= 0) { this.scroll.scroll_to_item(this.activeAt); cx.notify(); } })
         .on_mouse_up("left", (_e, cx) => { this.pressed = null; this.pressedFolder = null; cx.notify(); })

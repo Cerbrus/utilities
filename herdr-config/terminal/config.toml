@@ -1,0 +1,37 @@
+onboarding = false
+
+[ui]
+status_indicators = "symbols"
+
+[ui.sound]
+enabled = false
+
+[ui.sidebar.agents]
+row_gap = 1
+
+[ui.sidebar.agents.rows_by_agent]
+claude = [
+  ["state_icon", "workspace", { token = "$model", fg = "#a4a8ae", dim = false }],
+  ["tab"],
+  [{ token = "$ctx", fg = "#00ff00", rules = [
+    { starts_with = "ctx █████", fg = "#ff0000" },
+    { starts_with = "ctx ████", fg = "#ff8700" },
+    { starts_with = "ctx ███", fg = "#ffd700" },
+    { starts_with = "ctx ██", fg = "#d7ff00" },
+    { starts_with = "ctx █", fg = "#87ff00" },
+  ] }],
+]
+
+[theme]
+name = "one-dark"
+auto_switch = false
+
+[theme.custom]
+panel_bg = "#0C0C0C"
+sidebar_bg = "#0C0C0C"
+active_row_bg = "#393a3d"
+selection_bg = "#2D384C"
+accent = "#2f65ca"
+text = "#cfd2d5"
+green = "#8ea765"
+red = "#bc3f3c"

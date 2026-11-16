@@ -9,7 +9,7 @@ Prerequisite: [git](https://git-scm.com/) (authentication is handled by Git Cred
 Run in PowerShell:
 
 ```powershell
-git clone https://github.com/Cerbrus/utilities.git C:\DEV\utilities; powershell -ExecutionPolicy Bypass -File C:\DEV\utilities\Install.ps1
+git clone https://github.com/Cerbrus/utilities.git 'C:\DEV\~Cerbrus\utilities'; powershell -ExecutionPolicy Bypass -File 'C:\DEV\~Cerbrus\utilities\Install.ps1'
 ```
 
 Safe to re-run: if the repo is already cloned the `git clone` is a harmless no-op error, after which `Install.ps1` pulls the latest changes and re-runs every utility's installer (all idempotent). So the same one-liner also serves as "update this machine".
@@ -27,6 +27,7 @@ Everything runs non-elevated; no admin prompt required.
 | Utility | Description |
 |---------|-------------|
 | [claude-statusline](claude-statusline/README.md) | Status line for Claude Code: branch, model, context usage, rate limits |
+| [herdr-config](herdr-config/README.md) | [herdr](https://herdr.dev) customization: terminal config, plus a Herdr app layout and mod that show spaces as collapsible folders |
 | [powershell-profile](powershell-profile/README.md) | Shortcut to launch `claude` in a project folder (default `C:\DEV`), via an interactive picker (`dev` / `agent`) |
 | [wifi-mute](wifi-mute/README.md) | Mutes/unmutes audio automatically when connecting to configured Wi-Fi networks |
 

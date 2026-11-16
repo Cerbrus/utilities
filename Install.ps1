@@ -17,8 +17,8 @@ $repoRoot = $PSScriptRoot
 
 Write-Host "== utilities installer =="
 
-if ($repoRoot -ne 'C:\DEV\utilities') {
-    Write-Warning "Repository is at '$repoRoot' instead of 'C:\DEV\utilities'. Installers use absolute paths, so moving the repo later requires re-running this script."
+if ($repoRoot -ne 'C:\DEV\~Cerbrus\utilities') {
+    Write-Warning "Repository is at '$repoRoot' instead of 'C:\DEV\~Cerbrus\utilities'. Installers use absolute paths, so moving the repo later requires re-running this script."
 }
 
 # Self-update; a failed pull (offline, local changes) is not fatal.

@@ -74,5 +74,5 @@ Get-ScheduledTask -TaskName 'WiFi Mute - *', 'WiFi Unmute - *' | Unregister-Sche
 
 - Only the **default** playback device is muted. Switching output devices after the event keeps the new device's own mute state.
 - Tasks run as the logged-on user, non-elevated; nothing happens when nobody is logged in.
-- The tasks reference `Set-Mute.ps1` by absolute path (`C:\DEV\utilities\wifi-mute\`).
+- The tasks reference `Set-Mute.ps1` by absolute path (`C:\DEV\~Cerbrus\utilities\wifi-mute\`).
 - `-ExecutionPolicy Bypass` in the task action applies to that single invocation only.

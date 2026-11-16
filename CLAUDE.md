@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-Personal Windows utilities, expected to live at `C:\DEV\utilities`. One folder per utility, each self-contained with its own `README.md` and `Install.ps1`. The root `Install.ps1` self-updates the repo (`git pull --ff-only`) and then auto-discovers and runs every `<utility>\Install.ps1` — adding a utility requires no root changes.
+Personal Windows utilities, expected to live at `C:\DEV\~Cerbrus\utilities`. One folder per utility, each self-contained with its own `README.md` and `Install.ps1`. The root `Install.ps1` self-updates the repo (`git pull --ff-only`) and then auto-discovers and runs every `<utility>\Install.ps1` — adding a utility requires no root changes.
 
 ## Conventions (must hold for every utility's Install.ps1)
 
@@ -33,6 +33,10 @@ Do not actually run installers while developing unless asked — they modify the
 ### claude-statusline
 
 `pr-statusline.ps1` renders Claude Code's status line from the session JSON piped to stdin (branch, model, context bar, rate limits, caveman-mode flag). `Install.ps1` rewrites the `statusLine` entry in Claude Code's `settings.json` (respects `$env:CLAUDE_CONFIG_DIR`, defaults to `~\.claude`) to point at the repo copy, preserving all other settings via a JSON round-trip.
+
+### herdr-config
+
+Repo copies of herdr files; `Install.ps1` copies them to where herdr reads them (`%APPDATA%\herdr\config.toml` for terminal herdr, `~\.config\herdr-app` for the Herdr app) and `Install.ps1 -Pull` copies live edits back. The app hot-reloads live files, so mod work happens in place and is pulled afterwards. `app/mods/spaces-folders` and `app/layouts/main-folders.json` are clones of the shipped `spaces` mod and `main` layout: the app never updates clones, and shipped mods must not be edited directly. Verify a mod with `herdr-app check <mod folder>` and `herdr-app shot`; the app's own reference is `~\.config\herdr-app\AGENTS.md`.
 
 ### wifi-mute
 

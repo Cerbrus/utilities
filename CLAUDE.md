@@ -48,6 +48,7 @@ Things the app's docs don't say, learned the hard way:
 - A pane's `focus` ring takes space: without a `border` of the same width the terminal resizes when focus moves. The pane border is 1px in the `background` colour for that reason.
 - `lone: false` drops the whole frame of a tab's only pane, header included, not just the border and focus ring.
 - `image()` only shows files under the app's folder, not URLs, draws an animated SVG as a still, and caches by path: a rewritten file keeps its old picture until the app restarts, so the cached avatar's file name carries a hash of the style. `agents-bots` fetches each avatar once into `datagents-botsvatars` and moves it with `.loop()`.
+- Lines and curves are drawn with `PathBuilder` and `window.paint_path(path, color)` (the global `window`, not the one from `herdr`); the element needs a size and coordinates are relative to it. The builder mutates, and one path can hold several `move_to` strokes.
 - `herdr-app check` passes on mods that render nothing or mis-handle input; it only proves the mod loads. Clicking, dragging and popups need a person or a screenshot.
 
 ### wifi-mute

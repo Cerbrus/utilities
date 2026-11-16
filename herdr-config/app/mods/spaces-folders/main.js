@@ -5,10 +5,15 @@
 
 import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, ScrollHandle } from "gpui-base";
-import { spaces, machines, panes, run, openOverlay, exec, hc, theme, shared, setShared, watchFolder, window, layout } from "herdr";
-import { FOLDERS, folderOf } from "./folders.js";
+import { spaces, machines, panes, run, openOverlay, exec, hc, theme, shared, setShared, watchFolder, window, layout, checking, props } from "herdr";
+import { state, seeded, seed, folderOf, assign, placeFolder, childrenOf, parentOf, subtree, walk, fits, claimIncoming } from "./folders.js";
+import { FolderEdit } from "./folder-edit.js";
 
 const GUIDE_X = 13;
+const INDENT = 16;
+const FOLDER_HIGH = 28;
+// How far a row's content moves right when it is `depth` folders deep.
+const inset = (depth) => (depth ? depth * INDENT + 4 : 0);
 const FOLDED_KEY = "spaces.folders.folded";
 
 function find(node, id) {
@@ -68,6 +73,7 @@ export function tone(t, status) {
 
 export default class Spaces extends View {
   init(_props, cx) {
+    if (props()?.mode) { this.edit = new FolderEdit(); this.edit.init(cx); return; }
     this.git = {}; // where() -> { name, branch, ahead, behind, repo, linked }, null: not a repo
     this.checked = {}; // where() -> when it was last looked at
     this.unsure = new Set(); // where()s git couldn't answer for (a machine away)
@@ -101,6 +107,8 @@ export default class Spaces extends View {
   checkNew(cx) {
     const now = Date.now();
     const sp = spaces();
+    if (!seeded() && sp.length && !checking()) seed(sp);
+    claimIncoming(sp);
     for (const s of sp) if (!this.shown.has(s.id)) this.born[s.id] ??= now;
     const due = this.due(now, sp, panes());
     if (due.size) this.refreshGit(due, cx);
@@ -309,10 +317,11 @@ export default class Spaces extends View {
     const mains = new Set(list.filter((r) => r.g && !r.g.linked).map((r) => r.g.repo));
     const nested = (r) => r.g?.linked && mains.has(r.g.repo);
     const groups = [];
+    const st = state();
     const placed = new Set(); // repos whose worktrees are listed (under the first of its spaces)
     for (const r of list) {
       if (nested(r)) continue;
-      const folder = folderOf(r.w);
+      const folder = folderOf(r.w, st);
       const group = [{ ...r, tree: null, folder }];
       groups.push(group);
       if (!r.g || r.g.linked || placed.has(r.g.repo)) continue;
@@ -320,7 +329,8 @@ export default class Spaces extends View {
       const kids = list.filter((k) => nested(k) && k.g.repo === r.g.repo);
       kids.forEach((k, n) => group.push({ ...k, tree: n === kids.length - 1 ? "└─" : "├─", folder }));
     }
-    const rank = (name) => { const at = FOLDERS.findIndex((f) => f.name === name); return at < 0 ? FOLDERS.length : at; };
+    const shownOrder = walk(st).map((f) => f.id);
+    const rank = (id) => shownOrder.indexOf(id);
     const out = groups.map((group, n) => ({ group, n })).sort((a, b) => rank(a.group[0].folder) - rank(b.group[0].folder) || a.n - b.n).flatMap((s) => s.group);
     // Simulate the batch so later indexes include earlier moves. An attempted
     // write can lose a sync conflict: allow the echo to settle before retrying.
@@ -429,8 +439,14 @@ export default class Spaces extends View {
     });
   }
 
-  // This computer's rows as a file tree: a header per folder that folds on a
-  // click, its spaces under it on guide lines, loose spaces after the folders.
+  // This computer's rows as a file tree: loose spaces first, then the folders,
+  // each a header that folds on a click with its spaces and then its subfolders
+  // under it on guide lines.
+  // A dragged space lands in the folder of the header or row it is dropped on,
+  // and out of every folder when dropped on a loose row or below the list.
+  // A dragged header goes before or after the header whose top or bottom edge
+  // it is dropped on, and into the one whose middle it is dropped on.
+  // The folders around the space being looked at unfold when that changes.
   // `active`: where the active space's row lands among `items`, -1 when not drawn.
   foldered(rows, t, collapsed) {
     if (collapsed) return { items: rows.map((r) => this.compact(r, t)), active: rows.findIndex((r) => r.w.active) };
@@ -440,34 +456,120 @@ export default class Spaces extends View {
       if (r.w.active) active = items.length;
       items.push(this.row({ ...r, nest }, t));
     };
-    for (const f of FOLDERS) {
-      const mine = rows.filter((r) => r.folder === f.name);
-      if (!mine.length) continue;
-      const folded = this.foldersFolded.has(f.name);
-      const asks = mine.find((r) => r.w.status === "blocked") ?? mine.find((r) => r.w.status === "done");
-      items.push(h_flex().id(`folder-${f.name}`).h(28).flex_none().px(8).gap(7).items_center().rounded(7)
+    const dragging = this.pressed !== null;
+    const moving = this.pressedFolder ?? null;
+    const hover = (key) => (_e, cx) => {
+      if (dragging && this.over !== key) { this.over = key; cx.notify(); }
+    };
+    const drop = (folder) => (_e, cx) => {
+      if (!dragging) return;
+      assign(this.pressed, folder);
+      this.pressed = null;
+      this.over = null;
+      cx.notify();
+    };
+    const st = state();
+    const shown = rows.find((r) => r.w.active);
+    const looking = shown ? `${shown.w.id}:${(shown.w.tabs ?? []).find((c) => c.active)?.id}` : null;
+    if (looking !== this.looking) {
+      this.looking = looking;
+      let unfolded = false;
+      for (let id = shown?.folder; id; id = parentOf(st, id)) unfolded = this.foldersFolded.delete(id) || unfolded;
+      if (unfolded) localStorage.setItem(FOLDED_KEY, JSON.stringify([...this.foldersFolded]));
+    }
+    for (const r of rows) if (!r.folder) add(r, null);
+    // `trail`: for the folder and each folder around it, outermost first, whether it is the last one at its level.
+    const draw = (f, trail) => {
+      const under = new Set(subtree(st, f.id));
+      const within = rows.filter((r) => under.has(r.folder));
+      const mine = rows.filter((r) => r.folder === f.id);
+      const subs = childrenOf(st, f.id);
+      const siblings = childrenOf(st, f.parent).map((k) => k.id);
+      const folded = this.foldersFolded.has(f.id);
+      const asks = within.find((r) => r.w.status === "blocked") ?? within.find((r) => r.w.status === "done");
+      const key = `folder:${f.id}`;
+      const spot = (name) => {
+        const parent = name === "in" ? f.id : f.parent;
+        const zone = `${key}:${name}`;
+        return div().id(`${zone}-zone`).absolute().left(0).right(0)
+          .on_mouse_move((_e, cx) => {
+            const over = fits(st, moving, parent) ? zone : null;
+            if (this.over !== over) { this.over = over; cx.notify(); }
+          })
+          .on_mouse_up("left", (_e, cx) => {
+            const before = name === "in" ? null : name === "before" ? f.id : siblings.filter((id) => id !== moving)[siblings.filter((id) => id !== moving).indexOf(f.id) + 1] ?? null;
+            placeFolder(moving, parent, before);
+            this.pressedFolder = null;
+            this.over = null;
+            cx.notify();
+          });
+      };
+      items.push(h_flex().id(`folder-${f.id}`).relative().h(FOLDER_HIGH).flex_none().pl(8 + inset(trail.length)).pr(8).gap(7).items_center().rounded(7)
         .text_size(12).text_color(t.muted).cursor_pointer().hover((s) => s.bg(t.hover).text_color(t.foreground))
-        .on_click((_e, cx) => {
-          folded ? this.foldersFolded.delete(f.name) : this.foldersFolded.add(f.name);
-          localStorage.setItem(FOLDED_KEY, JSON.stringify([...this.foldersFolded]));
+        .when((dragging && this.over === key) || this.over === `${key}:in`, (el) => el.bg(t.selected).text_color(t.foreground))
+        .when(moving === f.id, (el) => el.opacity(0.5))
+        .children(this.guides({ trail }, FOLDER_HIGH, t))
+        .when(this.over === `${key}:before`, (el) => el.child(div().absolute().left(0).right(0).top(0).h(2).bg(t.accent)))
+        .when(this.over === `${key}:after`, (el) => el.child(div().absolute().left(0).right(0).bottom(0).h(2).bg(t.accent)))
+        .on_mouse_down("right", () => openOverlay({ mod: "spaces-folders", kind: "popup", width: 210, height: 290, props: { mode: "menu", folder: f.id } }))
+        .on_mouse_down("left", (_e, cx) => { this.pressedFolder = f.id; cx.notify(); })
+        .on_mouse_move(hover(key))
+        .on_mouse_up("left", (e, cx) => {
+          if (dragging) return drop(f.id)(e, cx);
+          const pressed = this.pressedFolder;
+          this.pressedFolder = null;
+          this.over = null;
+          if (pressed === f.id) {
+            folded ? this.foldersFolded.delete(f.id) : this.foldersFolded.add(f.id);
+            localStorage.setItem(FOLDED_KEY, JSON.stringify([...this.foldersFolded]));
+          }
           cx.notify();
         })
         .child(svg(`mods/workspace-chrome/chevron-${folded ? "right" : "down"}.svg`).size(11).flex_none())
         .child(svg("mods/workspace-chrome/folder.svg").size(13).flex_none())
         .child(div().flex_1().min_w(0).truncate().font_semibold().child(f.name))
         .when(folded && Boolean(asks), (el) => el.child(div().flex_none().text_color(tone(t, asks?.status)).child("●")))
-        .child(div().flex_none().text_size(11).text_color(t.dim).child(String(mine.length))));
-      if (folded) continue;
-      const lastTop = mine.reduce((at, r, n) => (r.tree ? at : n), -1);
-      let parentLast = false;
-      mine.forEach((r, n) => {
-        if (!r.tree) parentLast = n === lastTop;
-        add(r, r.tree ? { depth: 2, through: !parentLast } : { depth: 1, last: parentLast });
-      });
-    }
-    const names = new Set(FOLDERS.map((f) => f.name));
-    for (const r of rows) if (!names.has(r.folder)) add(r, null);
+        .child(div().flex_none().text_size(11).text_color(t.dim).child(String(within.length)))
+        .when(Boolean(moving) && moving !== f.id, (el) => el
+          .child(spot("before").top(0).h(8))
+          .child(spot("in").top(8).h(FOLDER_HIGH - 16))
+          .child(spot("after").bottom(0).h(8))));
+      if (folded) return;
+      const total = mine.filter((r) => !r.tree).length + subs.length;
+      let seen = 0;
+      let last = false;
+      for (const r of mine) {
+        if (!r.tree) last = ++seen === total;
+        add(r, { trail: [...trail, last], kid: Boolean(r.tree) });
+      }
+      for (const sub of subs) draw(sub, [...trail, ++seen === total]);
+    };
+    for (const f of childrenOf(st, null)) draw(f, []);
+    const filed = dragging && Boolean(st.of[this.pressed]);
+    items.push(v_flex().id("spaces-loose").flex_1().min_h(40).px(8).pt(4)
+      .on_mouse_move(hover("loose"))
+      .on_mouse_up("left", drop(null))
+      .when(filed && this.over === "loose", (el) => el
+        .child(div().h(2).flex_none().rounded(1).bg(t.accent))
+        .child(div().pt(5).text_size(11).text_color(t.dim).child("Out of its folder"))));
     return { items, active };
+  }
+
+  // The guide lines of a row `nest.trail.length` folders deep: a line passing
+  // through for each folder around it that has more below, and the row's own
+  // branch. A worktree row (`nest.kid`) has its checkout's lines pass through.
+  guides(nest, high, t) {
+    const line = (level) => div().absolute().left(GUIDE_X + level * INDENT).bg(t.dim).opacity(0.55);
+    const out = [];
+    nest.trail.forEach((last, level) => {
+      if (level < nest.trail.length - 1 || nest.kid) {
+        if (!last) out.push(line(level).top(0).w(1).h(high));
+        return;
+      }
+      out.push(line(level).top(0).w(1).h(last ? high / 2 : high));
+      out.push(line(level).top(high / 2).w(9).h(1));
+    });
+    return out;
   }
 
   // Only what's unusual, after the name: "herdr \u00b7 spike \u21912 \u21931". The repo or
@@ -493,10 +595,10 @@ export default class Spaces extends View {
       .when(g.behind > 0, (el) => el.child(div().flex_none().text_color(t.ansi1).child(`\u2193${g.behind}`)));
   }
 
-  row({ w, i, g, tree, nest }, t) {
+  row({ w, i, g, tree, nest, folder }, t) {
     const on = w.active;
     const high = rowHeight({ tree });
-    const line = () => div().absolute().left(GUIDE_X).bg(t.dim).opacity(0.55);
+    const deep = nest?.trail.length ?? 0;
     const fromIndex = this.pressed === null ? -1 : spaces().findIndex(s => s.id === this.pressed);
     const colors = shared("space.colors") ?? {};
     const color = colors[w.id] ?? "ansi6";
@@ -517,17 +619,14 @@ export default class Spaces extends View {
           .when(fromIndex < i, line => line.bottom(0))
           .when(fromIndex > i, line => line.top(0)),
       ))
-      .when(nest?.depth === 1, (el) => el
-        .child(line().top(0).w(1).h(nest.last ? high / 2 : high))
-        .child(line().top(high / 2).w(9).h(1)))
-      .when(nest?.depth === 2 && nest.through, (el) => el.child(line().top(0).w(1).h(high)))
+      .when(Boolean(nest), (el) => el.children(this.guides(nest, high, t)))
       .on_mouse_down("left", () => {
         this.pressed = w.id;
         this.over = w.id;
       })
       .on_mouse_move((_e, cx) => {
         const source = spaces().find(s => s.id === this.pressed);
-        const over = source && (source.machine ?? null) === (w.machine ?? null) && folderOf(source) === folderOf(w) ? w.id : null;
+        const over = source && (source.machine ?? null) === (w.machine ?? null) ? w.id : null;
         if (this.pressed !== null && this.over !== over) {
           this.over = over;
           cx.notify();
@@ -539,6 +638,7 @@ export default class Spaces extends View {
         this.pressed = null;
         this.over = null;
         if (from !== null && over === w.id && from !== w.id) {
+          if (!w.machine) assign(from, folder ?? null);
           const index = spaces().findIndex(s => s.id === w.id);
           if (index !== -1) run("space.move", { id: from, index: index + 1 });
         } else if (from === w.id) run("space.select", { id: w.id });
@@ -549,8 +649,8 @@ export default class Spaces extends View {
         h_flex()
           .gap(9)
           .items_center()
-          .when(Boolean(nest) && !tree, el => el.pl(20))
-          .when(Boolean(tree), el => el.pl(nest ? 42 : 22).child(svg("mods/workspace-chrome/branch.svg").size(13).flex_none().text_color(t.dim)))
+          .when(Boolean(nest) && !tree, el => el.pl(inset(deep)))
+          .when(Boolean(tree), el => el.pl(22 + inset(deep)).child(svg("mods/workspace-chrome/branch.svg").size(13).flex_none().text_color(t.dim)))
           .when(!tree, el => el.child(h_flex().size(18).flex_none().rounded(5).bg(fill).items_center().justify_center().text_size(10.5).font_bold().text_color("#ffffff").child([...w.name][0]?.toUpperCase() ?? "?")))
           .child(div().flex_initial().min_w(SIDE_MIN).truncate().text_color(t.foreground).child(w.name))
           .child(g ? this.gitTail(g, tree, w.name, t) : div().flex_1()),
@@ -574,6 +674,7 @@ export default class Spaces extends View {
   }
 
   render() {
+    if (this.edit) return this.edit.render();
     const t = theme();
     const collapsed = narrow();
     const palette = ["ansi6", "ansi3", "ansi4", "ansi5", "ansi2", "ansi1"];
@@ -600,12 +701,18 @@ export default class Spaces extends View {
       .child(h_flex().h(31).pl(16).pr(10).items_center().justify_between().text_size(11.5).text_color(t.dim)
         .when(collapsed, el => el.pl(0).pr(0).justify_center())
         .when(!collapsed, el => el.child("Spaces"))
-        .child(div().id("space-new").size(26).flex_none().flex().items_center().justify_center().rounded(6).hover(s => s.bg(t.hover).text_color(t.foreground))
-          .on_click(() => run("space.new")).child(svg("mods/workspace-chrome/plus.svg").size(14))))
+        .child(h_flex().flex_none()
+          .when(!collapsed, el => el.child(div().id("folder-new").size(26).flex_none().flex().items_center().justify_center().rounded(6).hover(s => s.bg(t.hover).text_color(t.foreground))
+            .tooltip("New folder")
+            .on_click(() => openOverlay({ mod: "spaces-folders", kind: "dialog", width: 420, height: 200, props: { mode: "name" } }))
+            .child(svg("mods/workspace-chrome/folder-plus.svg").size(14))))
+          .child(div().id("space-new").size(26).flex_none().flex().items_center().justify_center().rounded(6).hover(s => s.bg(t.hover).text_color(t.foreground))
+            .tooltip("Open a folder as a space")
+            .on_click(() => run("mod.open", { name: "space-open" })).child(svg("mods/workspace-chrome/plus.svg").size(14)))))
       .child(v_flex().flex_1().min_h(0).px(collapsed ? 0 : 8).pb(14).overflow_y_scrollbar().mode("always").track_scroll(this.scroll)
         // A block above (another mod's) growing, or the window resizing, shrinks this list and can push the active space out.
         .on_size_change((_size, cx) => { if (this.activeAt >= 0) { this.scroll.scroll_to_item(this.activeAt); cx.notify(); } })
-        .on_mouse_up("left", (_e, cx) => { this.pressed = null; cx.notify(); })
+        .on_mouse_up("left", (_e, cx) => { this.pressed = null; this.pressedFolder = null; cx.notify(); })
         .children(list));
   }
 }

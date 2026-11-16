@@ -72,6 +72,16 @@ foreach ($pair in $pairs) {
     Write-Host "copied     $to"
 }
 
+$keysPath = Join-Path $appHome 'keys.json'
+if (-not $Pull -and -not $skip['app'] -and (Test-Path -LiteralPath $keysPath)) {
+    $keys = [System.IO.File]::ReadAllText($keysPath)
+    $bound = $keys.Replace('"ctrl-shift-n": "space.new"', '"ctrl-shift-n": "mod.open:space-open"')
+    if ($bound -ne $keys) {
+        [System.IO.File]::WriteAllText($keysPath, $bound)
+        Write-Host "rebound    ctrl-shift-n to the space-open picker in $keysPath"
+    }
+}
+
 if (-not $Pull) {
     Write-Host ''
     Write-Host 'Terminal herdr: run "herdr server reload-config" to apply config.toml.'

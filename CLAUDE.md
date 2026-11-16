@@ -36,7 +36,15 @@ Do not actually run installers while developing unless asked — they modify the
 
 ### herdr-config
 
-Repo copies of herdr files; `Install.ps1` copies them to where herdr reads them (`%APPDATA%\herdr\config.toml` for terminal herdr, `~\.config\herdr-app` for the Herdr app) and `Install.ps1 -Pull` copies live edits back. The app hot-reloads live files, so mod work happens in place and is pulled afterwards. `app/mods/spaces-folders` and `app/layouts/main-folders.json` are clones of the shipped `spaces` mod and `main` layout: the app never updates clones, and shipped mods must not be edited directly. Verify a mod with `herdr-app check <mod folder>` and `herdr-app shot`; the app's own reference is `~\.config\herdr-app\AGENTS.md`.
+Repo copies of herdr files; `Install.ps1` copies them to where herdr reads them (`%APPDATA%\herdr\config.toml` for terminal herdr, `~\.config\herdr-app` for the Herdr app) and `Install.ps1 -Pull` copies live edits back. The app hot-reloads live files, so mod work happens in place and is pulled afterwards. `app/mods/spaces-folders` and `app/layouts/main-folders.json` are clones of the shipped `spaces` mod and `main` layout: the app never updates clones, and shipped mods must not be edited directly. `app/mods/space-open` is our own mod (the new-space picker). Verify a mod with `herdr-app check <mod folder>` and `herdr-app shot`; the app's own reference is `~\.config\herdr-app\AGENTS.md`.
+
+Things the app's docs don't say, learned the hard way:
+
+- A mod cannot import from another mod's folder (`../other/x.js` is refused), which is why the folder menu and dialogs live inside `spaces-folders` (`folder-edit.js`) and that mod opens itself as an overlay with `props.mode`. Mods share data through `shared()` / `setShared()` instead: `spaces.folders` holds the folders, `spaces.folders.incoming` is how `space-open` tells the list which folder a new space belongs in.
+- A popup is as tall as its content, so a scroll container (`overflow_y_scrollbar` with `min_h(0)`) inside one collapses to nothing and the popup shows empty.
+- `cx.notify()` in a mouse-down handler redraws the element and swallows its `on_click`. Folder headers therefore fold on mouse-up, comparing against the header that was pressed.
+- Elements only exist after a redraw: the drop zones on folder headers are drawn while a header is held, so the press has to `cx.notify()`.
+- `herdr-app check` passes on mods that render nothing or mis-handle input; it only proves the mod loads. Clicking, dragging and popups need a person or a screenshot.
 
 ### wifi-mute
 

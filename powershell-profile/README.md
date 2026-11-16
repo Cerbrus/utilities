@@ -12,7 +12,7 @@ PowerShell profile providing a shortcut to launch `claude` in a project: pick a 
     - Subfolders work too: `dev proj/back` matches inside `C:\DEV\proj`, and `dev proj/` opens the picker on that folder's subfolders.
     - Tab completion on the folder argument, including nested paths (`dev proj/ba[tab]`).
     - A bare name also matches folders inside `~Cerbrus` (`dev card` finds `~Cerbrus\card-scanner`); the picker lists them after the top-level folders.
-- **herdr auto-start** — inside a [herdr](https://herdr.dev) pane, the profile launches `claude` when the pane is the only one in its tab, so new workspaces and tabs open as Claude sessions while splits stay plain shells. Set `$env:DEV_NO_AUTO_CLAUDE` to turn it off.
+- **herdr auto-start** — inside a terminal [herdr](https://herdr.dev) pane, the profile launches `claude` when the pane is the only one in its tab, so new workspaces and tabs open as Claude sessions while splits stay plain shells. The Herdr desktop app is not covered; see [herdr-config](../herdr-config/README.md) for that. Set `$env:DEV_NO_AUTO_CLAUDE` to turn it off.
 - **`Select-DevFolder`** — the reusable console picker behind `dev` (scrolling viewport, filter status line).
 
 Type-to-filter narrows the list as you type:

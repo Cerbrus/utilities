@@ -189,3 +189,18 @@ Register-ArgumentCompleter -CommandName dev, agent -ParameterName folder -Script
         Sort-Object @{ Expression = { -not (Split-Path $_ -Leaf).StartsWith($leaf, 'OrdinalIgnoreCase') } }, { $_ } |
         ForEach-Object { if ($_ -match '\s') { "'$_'" } else { $_ } }
 }
+function Start-HerdrClaude {
+    if (-not ($env:HERDR_ENV -and $env:HERDR_TAB_ID -and $env:HERDR_BIN_PATH)) { return }
+    if ($env:CLAUDECODE -or $env:DEV_NO_AUTO_CLAUDE -or $env:DEV_AUTO_CLAUDE_STARTED) { return }
+    $shellArgs = [Environment]::GetCommandLineArgs()
+    if ($shellArgs -match '^-(noni|noninteractive)$') { return }
+    if (($shellArgs -match '^-(c|command|f|file|e|ec|encodedcommand)$') -and -not ($shellArgs -match '^-(noe|noexit)$')) { return }
+    if (-not (Get-Command claude -ErrorAction SilentlyContinue)) { return }
+    try {
+        $tab = (& $env:HERDR_BIN_PATH tab get $env:HERDR_TAB_ID | ConvertFrom-Json).result.tab
+    } catch { return }
+    if ($tab.pane_count -ne 1) { return }
+    $env:DEV_AUTO_CLAUDE_STARTED = '1'
+    claude
+}
+Start-HerdrClaude

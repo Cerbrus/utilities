@@ -1,6 +1,6 @@
-import { View, div } from "gpui-kit";
+import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, Scrollbar } from "gpui-base";
-import { exec, theme, run, layout, props, checking, spaces, agents, panes, notify, openOverlay, closeOverlay, shared, setShared } from "herdr";
+import { exec, theme, run, layout, props, checking, spaces, agents, panes, notify } from "herdr";
 
 const OWNER = "Baseflow";
 const REPOS = /^(asito|mtp)-/;
@@ -9,8 +9,8 @@ const REFRESH_MS = 5 * 60 * 1000, TICK_MS = 60 * 1000;
 const ROOTS = ["C:\\DEV", "C:\\DEV\\~Cerbrus"];
 const ARGV = ["claude"];
 const AGENT_WAIT_MS = 90 * 1000;
-const MENU_ROW = 30, REVIEW_REQUEST = "prs.review";
-const reviewText = (item) => `Review #${item.number}`;
+const TASK_ICON = "icons/agent.svg";
+const TASKS = { review: (number) => `Review #${number}`, mine: (number) => `Handle feedback on #${number}` };
 const URGENCY = ["red", "yellow", "green", "draft", "waiting"];
 const FLAG_GLYPHS = { red: "●", yellow: "●", green: "●", draft: "✎", waiting: "○" };
 const FLAG_WORDS = { red: "need your action", yellow: "need attention", green: "ready or done by you", draft: "draft", waiting: "waiting on others" };
@@ -64,13 +64,13 @@ function facts(node) {
 
 function authoredAction(node, { requests, latest }) {
   const has = (state) => latest.some((review) => review.state === state);
-  if (node.mergeable === "CONFLICTING") return ["red", "Resolve conflicts"];
-  if (node.reviewDecision === "CHANGES_REQUESTED" && has("CHANGES_REQUESTED")) return ["red", "Address changes"];
+  if (node.mergeable === "CONFLICTING") return ["red", "Resolve conflicts", true];
+  if (node.reviewDecision === "CHANGES_REQUESTED" && has("CHANGES_REQUESTED")) return ["red", "Address changes", true];
   if (node.reviewDecision === "APPROVED") return ["green", "Merge it"];
   if (node.isDraft) return ["draft", "Draft, mark ready"];
   if (node.labels.nodes.some((label) => label.name === "ship")) return ["waiting", "Ship, awaiting merge"];
   if (!requests.length && !latest.length) return ["yellow", "Add reviewers"];
-  if (has("COMMENTED")) return ["yellow", "Address comments"];
+  if (has("COMMENTED")) return ["yellow", "Address comments", true];
   return ["waiting", "Waiting on review"];
 }
 
@@ -78,15 +78,16 @@ function reviewAction(me, { requests, latest, standing }) {
   const mine = latest.find((review) => review.author.login === me)?.state;
   const others = standing.filter((person) => person.login !== me).map(firstName);
   if (mine && !requests.some((person) => person.login === me)) return ["green", "Done, author's turn"];
-  if (others.length && mine !== "CHANGES_REQUESTED") return ["yellow", `Reviewed by ${others.join(", ")}`];
-  return ["red", "Review needed"];
+  if (others.length && mine !== "CHANGES_REQUESTED") return ["yellow", `Reviewed by ${others.join(", ")}`, true];
+  return ["red", "Review needed", true];
 }
 
 function entry(node, kind, me) {
   const found = facts(node);
-  const [flag, action] = kind === "mine" ? authoredAction(node, found) : reviewAction(me, found);
+  const [flag, action, actionable] = kind === "mine" ? authoredAction(node, found) : reviewAction(me, found);
   return { kind, id: `${kind}-${node.repository.name}-${node.number}`, url: node.url, label: `${node.repository.name.replace(REPOS, "")}#${node.number}`,
-    repo: node.repository.name, number: node.number, title: node.title, updated: node.updatedAt, flag, action, reviewers: found.reviewers };
+    repo: node.repository.name, number: node.number, title: node.title, updated: node.updatedAt, flag, action, reviewers: found.reviewers,
+    task: actionable ? TASKS[kind](node.number) : null };
 }
 
 function overview(data) {
@@ -103,7 +104,7 @@ export default class PullRequests extends View {
     this.mine = [];
     this.review = [];
     this.loading = false;
-    if (checking() || props()?.mode === "menu") return;
+    if (checking()) return;
     cx.timer.every(TICK_MS, (cx) => { if (Date.now() - (this.started ?? 0) >= REFRESH_MS) this.refresh(cx); else cx.notify(); });
     this.refresh(cx);
   }
@@ -160,8 +161,8 @@ export default class PullRequests extends View {
     return null;
   }
 
-  startReview(item, cx) {
-    const text = reviewText(item), space = this.spaceFor(item.repo);
+  startTask(item, cx) {
+    const text = item.task, space = this.spaceFor(item.repo);
     this.pending = { repo: item.repo, text, known: new Set(agents().map((agent) => agent.address)), until: Date.now() + AGENT_WAIT_MS };
     if (space) {
       run("space.select", { id: space.id });
@@ -257,15 +258,13 @@ export default class PullRequests extends View {
       .hover((s) => s.bg(t.hover))
       .tooltip([item.action, `${item.repo}#${item.number}`, people].filter(Boolean).join("\n"))
       .on_click((_e, cx) => cx.open_url(item.url))
-      .on_mouse_down("right", () => openOverlay({ mod: "prs-panel", kind: "popup", width: 220, height: MENU_ROW * 2 + 12,
-        props: { mode: "menu", item: { repo: item.repo, number: item.number, url: item.url } } }))
+      .child(div().id(`task-${item.id}`).flex_none().size(20).flex().items_center().justify_center().rounded(4)
+        .text_color(item.task ? t.muted : t.border)
+        .when(Boolean(item.task), (el) => el.hover((s) => s.bg(t.raised).text_color(t.accent)).tooltip(`New agent tab: ${item.task}`))
+        .on_click((_e, cx) => { cx.stop_propagation(); if (item.task) this.startTask(item, cx); })
+        .child(svg(TASK_ICON).size(13)))
       .child(div().flex_none().w(12).text_color(colors[item.flag]).child(FLAG_GLYPHS[item.flag]))
-      .child(item.kind === "review"
-        ? div().id(`review-${item.id}`).flex_none().w(138).truncate().text_color(t.foreground)
-          .hover((s) => s.text_color(t.accent))
-          .on_click((_e, cx) => { cx.stop_propagation(); this.startReview(item, cx); })
-          .child(item.label)
-        : div().flex_none().w(138).truncate().text_color(t.foreground).child(item.label))
+      .child(div().flex_none().w(138).truncate().text_color(t.foreground).child(item.label))
       .child(div().flex_1().min_w(0).truncate().text_color(t.muted).child(item.title))
       .child(h_flex().flex_none().gap(3).children(item.reviewers.map((person) => div().text_color(reviewColors[person.state]).child(REVIEW_GLYPHS[person.state]))))
       .child(div().flex_none().w(28).flex().justify_end().text_color(t.dim).child(age(item.updated, now)));
@@ -283,25 +282,8 @@ export default class PullRequests extends View {
         .child(Scrollbar.vertical(`prs-${key}`).absolute().inset_0()));
   }
 
-  menu(t) {
-    const { item, overlay } = props();
-    const option = (id, label, act) => h_flex().id(id).h(MENU_ROW).flex_none().px(10).items_center().rounded(6).cursor_pointer()
-      .hover((s) => s.bg(t.hover))
-      .on_click((_e, cx) => { act(cx); closeOverlay(overlay); })
-      .child(label);
-    return v_flex().id("prs-menu").p(6).text_size(13).text_color(t.foreground)
-      .child(option("prs-menu-open", "Open in browser", (cx) => cx.open_url(item.url)))
-      .child(option("prs-menu-review", `Review #${item.number} in a new tab`, () => setShared(REVIEW_REQUEST, { ...item, at: Date.now() })));
-  }
-
-  render(cx) {
+  render() {
     const t = theme();
-    if (props()?.mode === "menu") return this.menu(t);
-    const request = shared(REVIEW_REQUEST);
-    if (request && request.at !== this.handled) {
-      this.handled = request.at;
-      cx.timer.after(0, (cx) => { setShared(REVIEW_REQUEST, null); this.startReview(request, cx); });
-    }
     const collapsed = this.collapsed(), now = Date.now();
     return v_flex().id("prs").size_full().min_h(0).overflow_hidden().bg(t.background).text_color(t.foreground).text_size(12)
       .child(div().h(SEAM).flex_none().bg(t.border))

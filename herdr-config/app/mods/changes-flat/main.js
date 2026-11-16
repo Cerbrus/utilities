@@ -1,4 +1,4 @@
-import { View, div } from "gpui-kit";
+import { View, div, svg } from "gpui-kit";
 import { v_flex, h_flex, InputState, Input, Scrollbar, v_virtual_list } from "gpui-base";
 import { spaces, panes, focused, exec, readTextFile, watchFolder, theme, settings } from "herdr";
 
@@ -31,8 +31,26 @@ function diffRows(lines) {
   });
 }
 
+const CHAR_WIDTH = 6.7, DIFF_GUTTER = 60;
+
+function wrapRows(rows, columns) {
+  return rows.flatMap((row) => {
+    if (row.kind === "@" || row.text.length <= columns) return [row];
+    const parts = [];
+    let rest = row.text;
+    while (rest.length > columns) {
+      const space = rest.lastIndexOf(" ", columns), at = space > columns / 2 ? space + 1 : columns;
+      parts.push(rest.slice(0, at));
+      rest = rest.slice(at);
+    }
+    parts.push(rest);
+    return parts.map((text, index) => ({ kind: row.kind, number: index ? undefined : row.number, text }));
+  });
+}
+
 export default class Changes extends View {
   init(_props, cx) {
+    this.wrap = localStorage.getItem("wrap") === "1";
     this.files = []; this.rows = []; this.diffWidth = 0; this.message = ""; this.handle = cx.focus_handle();
     this.input = InputState.new({ placeholder: "Commit message" });
     this.input.on("change", (_e, cx) => {
@@ -168,6 +186,19 @@ export default class Changes extends View {
     cx.notify();
   }
 
+  shownRows() {
+    if (!this.wrap || !this.diffSize) return this.rows;
+    const columns = Math.max(20, Math.floor((this.diffSize.width - DIFF_GUTTER) / CHAR_WIDTH));
+    if (this.wrapped?.rows !== this.rows || this.wrapped.columns !== columns) this.wrapped = { rows: this.rows, columns, shown: wrapRows(this.rows, columns) };
+    return this.wrapped.shown;
+  }
+
+  toggleWrap(cx) {
+    this.wrap = !this.wrap;
+    localStorage.setItem("wrap", this.wrap ? "1" : "0");
+    cx.notify();
+  }
+
   diffRow({ kind, number, text }, t) {
     if (kind === "@") return div().w_full().px(12).h(20).flex_none().truncate().bg(t.raised).text_color(t.dim).child(text);
     return h_flex().w_full().h(20).flex_none().gap(10).when(kind === "+", (e) => e.bg(t.ansi2 + "18")).when(kind === "-", (e) => e.bg(t.ansi1 + "18"))
@@ -177,6 +208,7 @@ export default class Changes extends View {
 
   render(cx) {
     if (key() !== this.context) this.refresh(cx);
+    const rows = this.shownRows();
     const t = theme(), add = this.files.reduce((n, f) => n + f.add, 0), del = this.files.reduce((n, f) => n + f.del, 0);
     const enabled = Boolean(this.message.trim() && this.root && !this.busy && !this.loading);
     return v_flex().id("changes").size_full().min_h(0).overflow_hidden().bg(t.background).text_color(t.foreground).text_size(13).track_focus(this.handle)
@@ -186,7 +218,11 @@ export default class Changes extends View {
       .child(h_flex().h(42).flex_none().px(14).gap(8).items_center().border_b(1).border_color(t.border)
         .child(div().font_semibold().child("Changes"))
         .child(div().px(5).py(1).rounded(4).border_1().border_color(t.border).text_size(10).text_color(t.muted).child(`${this.files.length} files`))
-        .child(div().flex_1()).child(div().text_size(11).text_color(t.ansi2).child(`+${add}`)).child(div().text_size(11).text_color(t.ansi1).child(`−${del}`)))
+        .child(div().flex_1())
+        .child(div().id("changes-wrap").size(22).flex_none().flex().items_center().justify_center().rounded(4).border_1().border_color(this.wrap ? t.accent : t.border).text_color(this.wrap ? t.accent : t.muted).cursor_pointer()
+          .hover((s) => s.bg(t.hover)).tooltip(this.wrap ? "Long lines wrap. Click to scroll sideways instead" : "Wrap long lines")
+          .on_mouse_down("left", (_e, cx) => cx.stop_propagation()).on_click((_e, cx) => this.toggleWrap(cx)).child(svg("mods/changes-flat/text-wrap.svg").size(13)))
+        .child(div().text_size(11).text_color(t.ansi2).child(`+${add}`)).child(div().text_size(11).text_color(t.ansi1).child(`−${del}`)))
       // overflow_y_scrollbar() wraps the list, so its flex sizing never reached the panel's layout.
       .child(div().flex_1().min_h(44).max_h(this.files.length * 28 + 12).relative().border_b(1).border_color(t.border)
         .child(v_flex().id("changes-list").absolute().inset_0().overflow_y_scroll().p(6).children(this.files.map((f) => {
@@ -199,9 +235,10 @@ export default class Changes extends View {
         .child(Scrollbar.vertical("changes-list").absolute().inset_0()))
       .when(this.limited, el => el.child(div().px(12).py(4).text_size(11).text_color(t.dim).child("Showing the first 1,000 changed files")))
       .child(div().flex_1().min_h(0).relative().font_family(settings().font_family ?? "JetBrains Mono").text_size(11)
-        .child(div().id("changes-diff-x").size_full().overflow_x_scrollbar()
-          .child(div().w_full().min_w(this.diffWidth).h_full().child(v_virtual_list("changes-diff", this.rows.length, 20, (i) => String(i),
-            (range) => this.rows.slice(range.start, range.end).map((row) => this.diffRow(row, t))).size_full())))
+        .child(div().id("changes-diff-x").size_full().overflow_x_scrollbar().mode("always")
+          .on_size_change((size, cx) => { this.diffSize = size; if (this.wrap) cx.notify(); })
+          .child(div().w_full().min_w(this.wrap ? 0 : this.diffWidth).h_full().child(v_virtual_list("changes-diff", rows.length, 20, (i) => String(i),
+            (range) => rows.slice(range.start, range.end).map((row) => this.diffRow(row, t))).size_full())))
         .child(Scrollbar.vertical("changes-diff").viewport_from_layout().absolute().inset_0())
         .when(!this.open && this.files.length > 0, (e) => e.child(div().absolute().top(6).px(12).text_color(t.dim).child("Select a file to view its changes"))))
       .when(Boolean(this.note), (e) => e.child(div().px(10).pb(8).text_size(11).text_color(t.ansi1).child(this.note)))

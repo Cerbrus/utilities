@@ -10,7 +10,7 @@
 | `app/layouts/main-folders.json` | `~\.config\herdr-app\layouts\` | Clone of the shipped `main` layout that shows the `spaces-folders` mod in the sidebar, with square panes and panels that sit flush, 1px lines between them. A tab's only pane has no header or focus ring. |
 | `app/mods/spaces-folders/` | `~\.config\herdr-app\mods\` | Clone of the shipped `spaces` mod that draws the spaces list as a file tree of collapsible folders. |
 | `app/mods/space-open/` | `~\.config\herdr-app\mods\` | Picker that opens a folder as a new space running `claude`. |
-| `app/mods/files-flat/`, `app/mods/changes-flat/` | `~\.config\herdr-app\mods\` | Clones of the shipped `files` and `changes` panels without their rounded border; the layout draws the lines between them. |
+| `app/mods/files-flat/`, `app/mods/changes-flat/` | `~\.config\herdr-app\mods\` | Clones of the shipped `files` and `changes` panels without their rounded border; the layout draws the lines between them. The Changes diff also has a Wrap toggle for long lines and a sideways scrollbar that always shows. |
 | `app/mods/agents-bots/` | `~\.config\herdr-app\mods\` | Clone of the shipped `agents` list that shows each agent as a card: a robot avatar, a context bar, the time since its status changed and the status. |
 | `app/mods/tabs-timer/` | `~\.config\herdr-app\mods\` | Clone of the shipped `tabs` bar that shows, on a tab whose agent is working, how long it has been working, and has the Keys button. |
 | `app/mods/cheatsheet/` | `~\.config\herdr-app\mods\` | Our own panel listing the keyboard shortcuts, opened with Keys next to Changes. |

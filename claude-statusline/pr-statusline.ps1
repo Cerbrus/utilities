@@ -31,6 +31,12 @@ function Get-Bar([double]$Pct, [int]$Width = 8) {
     return "${color}${filled}${Reset}${Dim}${empty}${Reset}"
 }
 
+function Get-PlainBar([double]$Pct, [int]$Width = 8) {
+    $p = [math]::Max(0.0, [math]::Min(100.0, $Pct))
+    $fill = [math]::Min($Width, [int][math]::Round($Width * $p / 100.0))
+    return ([string][char]0x2588) * $fill + ([string][char]0x2591) * ($Width - $fill)
+}
+
 function Format-Tokens([double]$N) {
     if ($N -ge 1000000) { return ('{0:0.#}M' -f ($N / 1000000)) }
     if ($N -ge 1000) { return ('{0:0}k' -f ($N / 1000)) }
@@ -142,6 +148,22 @@ if (Test-Path -LiteralPath $Flag) {
             }
         }
     } catch {}
+}
+
+if ($Data -and $env:HERDR_ENV -and $env:HERDR_PANE_ID -and $env:HERDR_BIN_PATH) {
+    $HerdrTokens = New-Object System.Collections.Generic.List[string]
+    if ($Data.model -and $Data.model.display_name) {
+        $HerdrTokens.Add("model=$($Data.model.display_name)")
+    }
+    if ($Data.context_window -and $null -ne $Data.context_window.used_percentage) {
+        $CtxPct = [double]$Data.context_window.used_percentage
+        $HerdrTokens.Add("ctx=ctx $(Get-PlainBar $CtxPct 5) $([math]::Round($CtxPct))%")
+    }
+    if ($HerdrTokens.Count) {
+        $HerdrArgs = @('pane', 'report-metadata', $env:HERDR_PANE_ID, '--source', 'claude-statusline')
+        foreach ($Token in $HerdrTokens) { $HerdrArgs += @('--token', $Token) }
+        try { & $env:HERDR_BIN_PATH @HerdrArgs 2>$null | Out-Null } catch {}
+    }
 }
 
 [Console]::Write(($Segments -join $Sep))

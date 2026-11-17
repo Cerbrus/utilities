@@ -37,6 +37,7 @@ export default class Tabs extends View {
   init(_props, cx) {
     cx.timer.every(30000, (cx) => cx.notify());
     this.pressed = null;
+    this.over = null;
     this.scroll = ScrollHandle.new();
     try { this.panels = JSON.parse(localStorage.getItem("panels") ?? "{}"); } catch { this.panels = {}; }
     if (!this.panels || typeof this.panels !== "object" || Array.isArray(this.panels)) this.panels = {};
@@ -108,23 +109,34 @@ export default class Tabs extends View {
     const stop = (_e, cx) => cx.stop_propagation();
     const button = (id, label, action) => div().id(id).size(26).flex_none().flex().items_center().justify_center().rounded(6).text_color(t.dim).hover(s => s.bg(t.hover).text_color(t.foreground))
       .on_mouse_down("left", stop).on_click(action).child(label);
+    const slot = (e, i) => i + (e.bounds && e.local_position.x > e.bounds.width / 2 ? 1 : 0);
+    const landing = (from, to) => to > from ? to - 1 : to;
+    const dragging = this.pressed !== null && this.over !== null && landing(this.pressed, this.over) !== this.pressed;
     const item = (c, i) => {
       const lead = panes().find(p => p.tab === c.id && p.program?.agent) ?? panes().find(p => p.tab === c.id);
       const program = lead?.program;
       const name = label(c, lead);
       const worker = c.status === "working" ? agents().find(a => a.tab === c.id && a.status === "working") : null;
       const since = worker ? shared("agents.changed")?.[worker.address]?.at : null;
-      return h_flex().id(`tab-${c.id}`).h(29).px(10).gap(7).rounded(7).items_center().flex_none().text_size(12.8)
+      return h_flex().id(`tab-${c.id}`).relative().h_full().px(10).gap(7).items_center().flex_none().text_size(12.8)
         // A rename or status dot on this or an earlier tab can push the active one out.
         .when(i <= active, el => el.on_size_change((_size, cx) => { this.scroll.scroll_to_item(active); cx.notify(); }))
-        .border(1).border_color(c.active ? t.border : t.chrome).bg(c.active ? t.raised : t.chrome).text_color(c.active ? t.foreground : t.muted)
+        .border_r(1).when(!i && lightsPadding, el => el.border_l(1)).border_color(t.border).bg(c.active ? t.raised : t.chrome).text_color(c.active ? t.foreground : t.muted)
         .hover(s => s.bg(t.hover))
+        .when(dragging && this.pressed === i, el => el.opacity(0.5))
+        .when(dragging && this.over === i + 1, el => el.child(div().absolute().top(0).bottom(0).right(-1).w(2).bg(t.accent)))
+        .when(dragging && !i && !this.over, el => el.child(div().absolute().top(0).bottom(0).left(0).w(2).bg(t.accent)))
+        .on_mouse_move((e, cx) => {
+          const over = slot(e, i);
+          if (this.pressed !== null && this.over !== over) { this.over = over; cx.notify(); }
+        })
         .on_mouse_down("middle", (_e, cx) => { cx.stop_propagation(); run("tab.close", { id: c.id }); })
         .on_mouse_down("left", (e, cx) => { cx.stop_propagation(); this.pressed = i; if (e.click_count === 2) run("tab.rename", { id: c.id }); })
-        .on_mouse_up("left", () => {
-          const from = this.pressed; this.pressed = null;
-          if (from !== null && from !== i) run("tab.move", { id: shown[from].id, index: space.tabs.findIndex(x => x.id === c.id) + 1 });
-          else run("tab.select", { id: c.id });
+        .on_mouse_up("left", (e, cx) => {
+          const from = this.pressed; this.pressed = null; this.over = null; cx.notify();
+          const to = from === null || from === i ? from : landing(from, slot(e, i));
+          if (to !== from) run("tab.move", { id: shown[from].id, index: space.tabs.findIndex(x => x.id === shown[to].id) + 1 });
+          else if (from === null || from === i) run("tab.select", { id: c.id });
         })
         .on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); openOverlay({ mod: "menu", kind: "popup", width: 200, props: { tab: "tab", target: { id: c.id, space: space.id } } }); })
         .when(Boolean(program?.icon), el => el.child(program.tint ? svg(program.icon).size(14).text_color(t.muted) : image(program.icon).size(14)))
@@ -138,7 +150,7 @@ export default class Tabs extends View {
     // Old saved rails and a dragged-narrow sidebar can be smaller than the window buttons.
     const lightsPadding = w?.platform === "macos" && w.titlebar === "none" && !w.fullscreen && root?.traffic_lights
       ? Math.max(10, (root.traffic_lights[0] + 64) / settings().zoom - (sidebar?.hidden ? 0 : sidebar?.size?.px ?? 0))
-      : 10;
+      : 0;
     const panel = find(root, "panel"), body = find(root, "panel-body");
     const enabled = [...(shared("workspace.panels") ?? ["files", "changes"]), "cheatsheet"];
     this.syncPanel(space, panel, body, enabled);
@@ -153,9 +165,9 @@ export default class Tabs extends View {
         }).child(svg(icon).size(14)).child(label);
     };
     return h_flex().size_full().min_w(0).px(10).pl(lightsPadding).gap(3).items_center().bg(t.chrome).border_b(1).border_color(t.border)
-      .on_mouse_up("left", () => { this.pressed = null; })
+      .on_mouse_up("left", (_e, cx) => { this.pressed = null; this.over = null; cx.notify(); })
       .on_scroll_wheel(e => this.wheel(e))
-      .child(h_flex().id("tab-scroll").flex_1().min_w(0).h_full().items_center().gap(3).overflow_x_scrollbar().track_scroll(this.scroll)
+      .child(h_flex().id("tab-scroll").flex_1().min_w(0).h_full().items_center().overflow_x_scrollbar().track_scroll(this.scroll)
         .on_size_change((_size, cx) => { if (active >= 0) { this.scroll.scroll_to_item(active); cx.notify(); } })
         .children(shown.map(item)))
       .child(button("tab-new", "+", () => openOverlay({ mod: "new-menu", kind: "popup", width: 250, height: 512 })))

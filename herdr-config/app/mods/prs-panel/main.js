@@ -10,7 +10,8 @@ const ROOTS = ["C:\\DEV", "C:\\DEV\\~Cerbrus"];
 const ARGV = ["claude"];
 const AGENT_WAIT_MS = 90 * 1000;
 const TASK_ICON = "icons/agent.svg";
-const TASKS = { review: (number) => `Review #${number}`, mine: (number) => `Handle feedback on #${number}` };
+const TASKS = { review: (number) => `Review #${number}`, mine: (number) => `Handle feedback on #${number}`,
+  dependabot: (number) => `Review #${number}, and fix any issues. Work towards finalizing this PR so it can be merged.` };
 const URGENCY = ["red", "yellow", "green", "draft", "waiting"];
 const FLAG_GLYPHS = { red: "●", yellow: "●", green: "●", draft: "✎", waiting: "○" };
 const FLAG_WORDS = { red: "need your action", yellow: "need attention", green: "ready or done by you", draft: "draft", waiting: "waiting on others" };
@@ -87,7 +88,7 @@ function entry(node, kind, me) {
   const [flag, action, actionable] = kind === "mine" ? authoredAction(node, found) : reviewAction(me, found);
   return { kind, id: `${kind}-${node.repository.name}-${node.number}`, url: node.url, label: `${node.repository.name.replace(REPOS, "")}#${node.number}`,
     repo: node.repository.name, number: node.number, title: node.title, updated: node.updatedAt, flag, action, reviewers: found.reviewers,
-    task: actionable ? TASKS[kind](node.number) : null };
+    task: actionable ? TASKS[/^dependabot/.test(node.author?.login) ? "dependabot" : kind](node.number) : null };
 }
 
 function overview(data) {

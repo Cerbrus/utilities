@@ -83,6 +83,20 @@ const CONTEXT_DIR = "data/claude-statusline";
 const AVATAR_URL = "https://api.dicebear.com/10.x/voxel-bot/svg?flip=horizontal&backgroundColor=00000000&bodyColor=e9ecef,aeb8c2,b6a6f5,74c0fc&screenColor=07070a&glowColor=3bc9db,69db7c,ffd43b,e599f7&seed=";
 const LOCAL_ID = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
 const AVATAR = 44;
+const Z_PERIOD = 2700;
+const Z_COUNT = 3;
+const Z_COLOR = "#69db7c";
+const BED = '<path d="M2 14h10v100H2Z" fill="#5f3820"/><path d="M10 18h116v92H10Z" fill="#7a4a2d"/><path d="M14 22h109v84H14Z" fill="#d8c9a3"/><path d="M17 25h28v78H17Z" fill="#f5efe0"/><path d="M17 97h28v6H17Z" fill="#000000" fill-opacity=".12"/>';
+const eyeColor = (text) => text.match(/id="eyes-[^"]*">.*?fill="(#[0-9a-f]{6})"/i)?.[1] ?? Z_COLOR;
+const BODY_COLORS = AVATAR_URL.match(/bodyColor=([^&]*)/)[1].split(",");
+const shade = (hex, by) => `#${[0, 2, 4].map((i) => Math.round(parseInt(hex.slice(i, i + 2), 16) * (1 - by)).toString(16).padStart(2, "0")).join("")}`;
+const blend = (a, b) => `#${[1, 3, 5].map((i) => Math.round((parseInt(a.slice(i, i + 2), 16) + parseInt(b.slice(i, i + 2), 16)) / 2).toString(16).padStart(2, "0")).join("")}`;
+const sheet = (body, eye) => `<path d="M84 22h39v84H84Z" fill="${shade(body, 0.3)}"/><path d="M84 98h39v8H84Z" fill="#000000" fill-opacity=".22"/><path d="M97 22v84M110 22v84" stroke="#000000" stroke-opacity=".14" stroke-width="1.5"/><path d="M77 22h9v84h-9Z" fill="${blend(eye, shade(body, 0.3))}"/><path d="M77 98h9v8h-9Z" fill="#000000" fill-opacity=".14"/>`;
+const FLIPPED = '<g transform="translate(128, 0) scale(-1, 1)">';
+const tuckIn = (text) => {
+  const body = BODY_COLORS.find((color) => text.toLowerCase().includes(`fill="#${color}"`)) ?? BODY_COLORS[0];
+  return text.replace(FLIPPED, `${BED}<g transform="rotate(270, 64, 64)">${FLIPPED}`).replace(/<\/g><\/svg>\s*$/, `</g>${sheet(body, eyeColor(text))}</g></svg>`);
+};
 const INACTIVE_AFTER = 86400000;
 
 function hash(text) {
@@ -98,7 +112,7 @@ function hash(text) {
 
 const AVATAR_STYLE = hash(AVATAR_URL).slice(0, 6);
 const avatarKey = (a) => hash(`${a.space_name}\u0000${a.tab_name}`);
-const avatarFile = (key, asleep) => `${AVATAR_DIR}/${key}-${AVATAR_STYLE}${asleep ? "-asleep" : ""}.svg`;
+const avatarFile = (key, asleep) => `${AVATAR_DIR}/${key}-${AVATAR_STYLE}${asleep ? "-asleep-bed5" : ""}.svg`;
 
 function contextColor(pct) {
   const f = Math.max(0, Math.min(1, pct / 100));
@@ -125,8 +139,18 @@ export default class Agents extends View {
     if (!this.pendingPins.length) localStorage.removeItem("pins");
     this.migratingPins = new Set();
     cx.timer.every(30000, (cx) => cx.notify());
+    this.zHeld = -1;
+    this.zNext = 0;
+    cx.timer.every(Z_PERIOD / Z_COUNT, (cx) => {
+      if (!this.sleepers) return;
+      this.zHeld = this.zNext;
+      this.zNext = (this.zNext + 1) % Z_COUNT;
+      cx.notify();
+      cx.timer.after(50, (cx) => { this.zHeld = -1; cx.notify(); });
+    });
     setShared("agents.changed", this.changed);
     this.avatars = new Set();
+    this.eyes = new Map();
     this.loading = new Set();
     this.context = {};
     if (checking()) return;
@@ -156,28 +180,59 @@ export default class Agents extends View {
     this.context = context;
   }
 
-  loadAvatar(file, url, cx) {
+  async awakeText(key) {
+    const path = `${appHome()}/${avatarFile(key, false)}`;
+    const cached = await readTextFile(path).catch(() => null);
+    if (cached) return cached;
+    const response = await fetch(`${AVATAR_URL}${key}`);
+    if (!response.ok) return null;
+    const text = await response.text();
+    await writeTextFile(path, text, null);
+    return text;
+  }
+
+  loadAvatar(key, asleep, cx) {
+    const file = avatarFile(key, asleep);
     if (this.loading.has(file) || checking()) return;
     this.loading.add(file);
     cx.spawn(async (cx) => {
       const path = `${appHome()}/${file}`;
-      if (!(await readTextFile(path).catch(() => null))) {
-        const response = await fetch(url);
-        if (!response.ok) return;
-        await writeTextFile(path, await response.text(), null);
+      let text = asleep ? await readTextFile(path).catch(() => null) : await this.awakeText(key);
+      if (!text && asleep) {
+        const awake = await this.awakeText(key);
+        if (!awake) return;
+        text = tuckIn(awake);
+        await writeTextFile(path, text, null);
       }
+      if (!text) return;
+      this.eyes.set(file, eyeColor(text));
       this.avatars.add(file);
       cx.notify();
+    });
+  }
+
+  zzz(key, color) {
+    return Array.from({ length: Z_COUNT }, (_, i) => {
+      const up = this.zHeld !== i, ms = up ? Z_PERIOD - 100 : 1, size = up ? 0 : 10;
+      const id = (part) => `z${i}${part}-${key}`;
+      return div().id(id("x")).absolute().top(0).left(up ? 0 : 11).text_color(color).transition("left", ms)
+        .child(div().id(id("y")).relative().top(up ? 0 : 11).transition("top", ms)
+          .child(div().id(id("w")).w(size).transition("width", ms)
+            .child(div().id(id("h")).w_full().h(size).transition("height", ms).child(svg("mods/agents-bots/z.svg").size_full()))));
     });
   }
 
   avatar(a, t, cx, asleep = false) {
     const key = avatarKey(a), file = avatarFile(key, asleep);
     if (!this.avatars.has(file)) {
-      this.loadAvatar(file, `${AVATAR_URL}${key}${asleep ? "&rotate=270" : ""}`, cx);
+      this.loadAvatar(key, asleep, cx);
       return div().size(AVATAR).flex_none().bg(t.raised);
     }
     const picture = image(file).w(AVATAR).h(AVATAR).flex_none();
+    if (asleep) {
+      this.sleepers += 1;
+      return div().relative().size(AVATAR).flex_none().child(picture.opacity(0.5)).children(this.zzz(key, this.eyes.get(file) ?? Z_COLOR));
+    }
     if (a.status === "working") return picture.relative().loop("top", { from: -1.5, to: 1.5, period: 1100 });
     if (a.status === "idle") return picture.opacity(0.5);
     if (a.status !== "blocked") return picture;
@@ -321,6 +376,7 @@ export default class Agents extends View {
   render(cx) {
     const t = theme();
     if (props()?.sortMenu) return this.sortMenu(t);
+    this.sleepers = 0;
     const collapsed = narrow();
     const sort = sortOf();
     let list = agents();

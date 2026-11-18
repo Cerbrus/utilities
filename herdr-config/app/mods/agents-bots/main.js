@@ -97,7 +97,7 @@ const tuckIn = (text) => {
   const body = BODY_COLORS.find((color) => text.toLowerCase().includes(`fill="#${color}"`)) ?? BODY_COLORS[0];
   return text.replace(FLIPPED, `${BED}<g transform="rotate(270, 64, 64)">${FLIPPED}`).replace(/<\/g><\/svg>\s*$/, `</g>${sheet(body, eyeColor(text))}</g></svg>`);
 };
-const INACTIVE_AFTER = 86400000;
+const INACTIVE_AFTER = 16 * 3600000;
 
 function hash(text) {
   let x = 0x811c9dc5;

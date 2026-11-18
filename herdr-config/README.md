@@ -32,7 +32,7 @@ Spaces are reordered so each folder's spaces sit together. The folders and which
 
 Each agent's avatar is a [DiceBear](https://www.dicebear.com) `voxel-bot` in the Night Shift colours, mirrored and on a transparent background, the same one for the same space and tab. `agents-bots` fetches it once from `api.dicebear.com`, sending only a hash of the space and tab name as the seed, and keeps it in `~\.config\herdr-app\data\agents-bots\avatars\`. The avatar bobs while the agent works, shakes sideways in bursts when it needs you and is dimmed while it is idle.
 
-The context bar reads `~\.config\herdr-app\data\claude-statusline\<terminal id>.json`, written by `claude-statusline\pr-statusline.ps1`; it stays empty until that agent's status line has drawn once. An agent that has been idle for more than a day moves to a folded `Inactive` group at the bottom, unless it is pinned or shown; there its avatar lies on its side, asleep. Sorting, pinning, sub-agents and the narrow rail work as in the shipped list.
+The context bar reads `~\.config\herdr-app\data\claude-statusline\<terminal id>.json`, written by `claude-statusline\pr-statusline.ps1`; it stays empty until that agent's status line has drawn once. An agent that has been idle for more than 16 hours moves to a folded `Inactive` group at the bottom, unless it is pinned or shown; there its avatar lies on its side, asleep. Sorting, pinning, sub-agents and the narrow rail work as in the shipped list.
 
 `agents-bots` publishes when each agent's status last changed as `agents.changed` in the shared state; `tabs-timer` reads it for the timer on a working tab, so the timer needs the agents list in the layout.
 

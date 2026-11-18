@@ -10,7 +10,7 @@ const ROOTS = ["C:\\DEV", "C:\\DEV\\~Cerbrus"];
 const ARGV = ["claude"];
 const AGENT_WAIT_MS = 90 * 1000;
 const TASK_ICON = "icons/agent.svg";
-const TASKS = { review: (number) => `Review #${number}`, mine: (number) => `Handle feedback on #${number}`,
+const TASKS = { review: (number) => `Review #${number}`, mine: (number) => `Handle feedback on #${number}`, merge: (number) => `Merge #${number}`,
   dependabot: (number) => `Review #${number}, and fix any issues. Work towards finalizing this PR so it can be merged.` };
 const URGENCY = ["red", "yellow", "green", "draft", "waiting"];
 const FLAG_GLYPHS = { red: "●", yellow: "●", green: "●", draft: "✎", waiting: "○" };
@@ -67,7 +67,7 @@ function authoredAction(node, { requests, latest }) {
   const has = (state) => latest.some((review) => review.state === state);
   if (node.mergeable === "CONFLICTING") return ["red", "Resolve conflicts", true];
   if (node.reviewDecision === "CHANGES_REQUESTED" && has("CHANGES_REQUESTED")) return ["red", "Address changes", true];
-  if (node.reviewDecision === "APPROVED") return ["green", "Merge it"];
+  if (node.reviewDecision === "APPROVED") return ["green", "Merge it", "merge"];
   if (node.isDraft) return ["draft", "Draft, mark ready"];
   if (node.labels.nodes.some((label) => label.name === "ship")) return ["waiting", "Ship, awaiting merge"];
   if (!requests.length && !latest.length) return ["yellow", "Add reviewers"];
@@ -88,7 +88,7 @@ function entry(node, kind, me) {
   const [flag, action, actionable] = kind === "mine" ? authoredAction(node, found) : reviewAction(me, found);
   return { kind, id: `${kind}-${node.repository.name}-${node.number}`, url: node.url, label: `${node.repository.name.replace(REPOS, "")}#${node.number}`,
     repo: node.repository.name, number: node.number, title: node.title, updated: node.updatedAt, flag, action, reviewers: found.reviewers,
-    task: actionable ? TASKS[/^dependabot/.test(node.author?.login) ? "dependabot" : kind](node.number) : null };
+    task: actionable ? TASKS[TASKS[actionable] ? actionable : /^dependabot/.test(node.author?.login) ? "dependabot" : kind](node.number) : null };
 }
 
 function overview(data) {

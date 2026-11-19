@@ -6,7 +6,11 @@ const MODIFIERS = ["ctrl", "alt", "shift", "cmd", "fn"];
 const MODIFIER_LABELS = { ctrl: "Ctrl", alt: "Alt", shift: "Shift", cmd: "Win", fn: "Fn" };
 const KEY_LABELS = { left: "←", right: "→", up: "↑", down: "↓", pageup: "PgUp", pagedown: "PgDn", backspace: "Backspace", insert: "Ins", delete: "Del", escape: "Esc", enter: "Enter", tab: "Tab", space: "Space" };
 const GROUPS = ["space", "tab", "pane", "agent", "terminal", "layout", "app", "mod"];
-const MOD_COMMANDS = { "agents-bots.top": { group: "agent", label: "Show the agent at the top of the Agents list" } };
+const MOD_COMMANDS = {
+  "agents-bots.top": { group: "agent", label: "Show the agent at the top of the Agents list" },
+  "tabs-timer.close": { group: "tab", label: "Close the tab; a Run tab stops its processes first" },
+  "tabs-timer.run": { group: "tab", label: "Show the Run tab of this space, with its run configs" },
+};
 const GROUP_LABELS = { space: "Spaces", tab: "Tabs", pane: "Panes", agent: "Agents", terminal: "Terminal", layout: "Layout", app: "App", mod: "Mods", other: "Other" };
 
 function chord(text) {

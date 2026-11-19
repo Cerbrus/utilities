@@ -1,6 +1,6 @@
 import { View, div, svg, image } from "gpui-kit";
 import { h_flex, ScrollHandle } from "gpui-base";
-import { spaces, panes, agents, run, openOverlay, theme, window, shared, layout, settings } from "herdr";
+import { spaces, panes, agents, run, openOverlay, theme, window, shared, setShared, nextCommand, layout, settings } from "herdr";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -33,9 +33,32 @@ function elapsed(ms) {
   return minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 }
 
+const runs = (tab) => panes().some(p => p.mod === "run-configs" && p.tab === tab);
+
+function closeTab(id) {
+  const space = spaces().find(s => s.tabs.some(t => t.id === id));
+  if (!shared("run-configs.live")?.[space?.id] || !runs(id) || shared("run-configs.close")?.tab === id) return run("tab.close", { id });
+  setShared("run-configs.close", { space: space.id, tab: id, at: Date.now() });
+}
+
+function showRunConfigs() {
+  const space = spaces().find(s => s.active);
+  if (!space) return;
+  const tab = space.tabs.find(t => runs(t.id) || (t.named && t.name === "Run"));
+  if (tab) run("tab.select", { id: tab.id });
+  else run("tab.new", { name: "Run", space: space.id, mod: "run-configs", props: { folder: panes().find(p => p.focused)?.cwd ?? space.folder, space: space.id } });
+}
+
 export default class Tabs extends View {
   init(_props, cx) {
     cx.timer.every(30000, (cx) => cx.notify());
+    cx.spawn(async () => {
+      for (;;) {
+        const command = await nextCommand();
+        if (command === "run") showRunConfigs();
+        else if (command === "close") closeTab(spaces().find(s => s.active)?.tabs.find(t => t.active)?.id);
+      }
+    });
     this.pressed = null;
     this.over = null;
     this.scroll = ScrollHandle.new();
@@ -130,7 +153,7 @@ export default class Tabs extends View {
           const over = slot(e, i);
           if (this.pressed !== null && this.over !== over) { this.over = over; cx.notify(); }
         })
-        .on_mouse_down("middle", (_e, cx) => { cx.stop_propagation(); run("tab.close", { id: c.id }); })
+        .on_mouse_down("middle", (_e, cx) => { cx.stop_propagation(); closeTab(c.id); })
         .on_mouse_down("left", (e, cx) => { cx.stop_propagation(); this.pressed = i; if (e.click_count === 2) run("tab.rename", { id: c.id }); })
         .on_mouse_up("left", (e, cx) => {
           const from = this.pressed; this.pressed = null; this.over = null; cx.notify();
@@ -144,7 +167,7 @@ export default class Tabs extends View {
         .when(Boolean(since), el => el.child(div().flex_none().text_size(11).text_color(t.dim).child(elapsed(Date.now() - since))))
         .when(c.status === "working", el => el.child(svg("mods/workspace-chrome/spinner.svg").size(12).flex_none().text_color(t.working).spin(900)))
         .when(c.status === "blocked" || c.status === "done", el => el.child(div().size(6).rounded(3).bg(t[c.status])))
-        .when(c.active, el => el.child(div().id(`close-${c.id}`).text_color(t.dim).on_mouse_down("left", stop).on_click((_e, cx) => { cx.stop_propagation(); run("tab.close", { id: c.id }); }).child(svg("mods/pane/close.svg").size(12))));
+        .when(c.active, el => el.child(div().id(`close-${c.id}`).text_color(t.dim).on_mouse_down("left", stop).on_click((_e, cx) => { cx.stop_propagation(); closeTab(c.id); }).child(svg("mods/pane/close.svg").size(12))));
     };
     const root = layout(), sidebar = find(root, "sidebar"), w = window();
     // Old saved rails and a dragged-narrow sidebar can be smaller than the window buttons.

@@ -1,11 +1,12 @@
 // JetBrains run configurations (.run/*.run.xml) of a folder as an accordion: pick one, run it,
-// and follow every process. Processes are herdr-core terminals without a pane, so they outlive
-// this pane; they are found again by their labels. Props: { folder }.
+// and follow every process. Processes are herdr-core terminals without a pane, found again by
+// their labels; closing the tab stops them. Props: { folder, space }.
 import { View, div } from "gpui-kit";
 import { v_flex, h_flex } from "gpui-base";
-import { exec, hc, home, theme, settings, run, props, checking, spaces, panes, focused, notify, nextCommand } from "herdr";
+import { exec, hc, home, theme, settings, run, props, shared, setShared, checking, spaces, panes, focused, notify, nextCommand } from "herdr";
 
 const TICK_MS = 500, TAIL = 80, BAR = 34, ROW = 26, NAME = 200;
+const PICKS = "run-configs.picks", LIVE = "run-configs.live", CLOSE = "run-configs.close";
 const BUILD = "Build";
 const SPIN = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
 const TYPES = { CompoundRunConfigurationType: "group", LaunchSettings: ".NET", RunNativeExe: "exe" };
@@ -47,13 +48,16 @@ export default class RunConfigs extends View {
     this.state = new Map();
     this.output = new Map();
     this.finalRead = new Set();
-    this.selected = localStorage.getItem("selected");
+    this.selected = null;
+    this.favorites = new Set();
     this.open = new Set(JSON.parse(localStorage.getItem("open") ?? "[]"));
     this.turn = 0;
     const space = spaces().find((candidate) => candidate.active);
     const pane = panes().find((candidate) => candidate.pane === focused()?.pane);
     this.folder = given?.folder ?? props()?.folder ?? localStorage.getItem("folder") ?? pane?.cwd ?? space?.folder ?? home();
     localStorage.setItem("folder", this.folder);
+    this.space = given?.space ?? props()?.space;
+    this.started = Date.now();
     if (checking()) return;
     if (given?.config ?? props()?.config) this.selected = given?.config ?? props().config;
     this.reload(cx);
@@ -82,12 +86,51 @@ export default class RunConfigs extends View {
         this.root = found.root;
         this.configs = [].concat(found.configs ?? []).sort((a, b) => a.name.localeCompare(b.name));
         this.error = null;
-        if (!this.config(this.selected)) this.selected = null;
+        this.favorites = new Set(this.picks().favorites ?? []);
+        this.selected = [this.selected, this.picks().selected].find((name) => this.config(name)) ?? null;
       } catch (error) {
         this.error = String(error?.message ?? error);
       }
       cx.notify();
     });
+  }
+
+  picks() {
+    return shared(PICKS)?.[this.root.toLowerCase()] ?? {};
+  }
+
+  pick(change) {
+    setShared(PICKS, { ...shared(PICKS), [this.root.toLowerCase()]: { ...this.picks(), ...change } });
+  }
+
+  leave(cx) {
+    const live = [...this.state.values()].filter((current) => current.state === "live").length;
+    if (this.space && live !== this.reported) {
+      this.reported = live;
+      setShared(LIVE, { ...shared(LIVE), [this.space]: live });
+    }
+    const asked = shared(CLOSE);
+    if (!this.closing && this.space && asked?.space === this.space && asked.at > this.started) {
+      this.closing = asked.tab;
+      if (live) notify({ title: "Stopping the run config", body: `The Run tab closes when its ${live} processes have ended` });
+      this.stop([...this.state.keys()], cx);
+    }
+    if (this.closing && !live && !this.gone) {
+      this.gone = true;
+      for (const address of this.meta.keys()) hc(["rm", address]);
+      run("tab.close", { id: this.closing });
+    }
+  }
+
+  async close() {
+    for (const current of this.state.values()) if (current.state === "live") run("terminal.kill", { terminal: current.address });
+    if (this.space) setShared(LIVE, { ...shared(LIVE), [this.space]: 0 });
+  }
+
+  favor(name, cx) {
+    if (!this.favorites.delete(name)) this.favorites.add(name);
+    this.pick({ favorites: [...this.favorites] });
+    cx.notify();
   }
 
   config(name) {
@@ -136,7 +179,13 @@ export default class RunConfigs extends View {
   async sync() {
     const listed = await hc(["ls", "--all", "--json", "--label", this.label()]);
     if (listed.code) return false;
-    const terminals = JSON.parse(listed.stdout).terminals ?? [], state = new Map();
+    const state = new Map();
+    let terminals = JSON.parse(listed.stdout).terminals ?? [];
+    if (!this.cleaned) {
+      this.cleaned = true;
+      for (const terminal of terminals.filter((terminal) => terminal.state !== "live")) await hc(["rm", terminal.address]);
+      terminals = terminals.filter((terminal) => terminal.state === "live");
+    }
     for (const terminal of terminals) {
       if (!this.meta.has(terminal.address)) {
         const got = await hc(["get", terminal.address, "--json"]);
@@ -230,6 +279,7 @@ export default class RunConfigs extends View {
       try {
         const phase = this.job?.phase;
         let changed = await this.sync();
+        this.leave(cx);
         await this.advance();
         if (this.job?.phase !== phase) changed = (await this.sync()) || true;
         const names = [BUILD, ...this.processes().map((process) => process.name)].filter((name) => this.state.has(name));
@@ -245,6 +295,7 @@ export default class RunConfigs extends View {
   }
 
   begin(names, cx) {
+    if (this.closing) return;
     this.job = { phase: "stopping", names, killed: new Set() };
     cx.notify();
   }
@@ -260,7 +311,7 @@ export default class RunConfigs extends View {
   select(name, cx) {
     this.selected = name;
     this.picking = false;
-    localStorage.setItem("selected", name);
+    this.pick({ selected: name });
     cx.notify();
   }
 
@@ -305,16 +356,20 @@ export default class RunConfigs extends View {
   picker(t) {
     const groups = this.configs.filter((config) => config.type === "CompoundRunConfigurationType");
     const singles = this.configs.filter((config) => config.type !== "CompoundRunConfigurationType");
-    const row = (config) => h_flex().id(`pick-${config.name}`).h(ROW).flex_none().px(12).gap(10).items_center().cursor_pointer()
+    const favorite = (config) => this.favorites.has(config.name);
+    const top = [...groups, ...singles].filter(favorite), rest = [...groups, ...singles].filter((config) => !favorite(config));
+    const row = (config) => h_flex().id(`pick-${config.name}`).h(ROW).flex_none().pl(5).pr(12).gap(6).items_center().cursor_pointer()
       .when(config.name === this.selected, (el) => el.bg(t.selected))
       .hover((s) => s.bg(t.hover))
       .on_click((_event, cx) => this.select(config.name, cx))
+      .child(this.button(t, `favor-${config.name}`, div().when(favorite(config), (el) => el.text_color(t.ansi3)).child(favorite(config) ? "★" : "☆"),
+        favorite(config) ? "Remove from favorites" : "Add to favorites", (cx) => this.favor(config.name, cx)))
       .child(div().flex_none().w(44).text_size(11).text_color(t.dim).child(TYPES[config.type] ?? "other"))
       .child(div().min_w(0).truncate().text_color(TYPES[config.type] ? t.foreground : t.dim).child(config.name))
       .when(config.type === "CompoundRunConfigurationType", (el) => el
         .child(div().flex_none().text_color(t.dim).child(`${this.resolve(config.name).size} processes`)));
     return v_flex().id("run-picker").flex_1().min_h(0).overflow_y_scrollbar().py(4)
-      .children([...groups, ...singles].map(row))
+      .children([...top.map(row), ...(top.length && rest.length ? [div().flex_none().h(1).mx(12).my(4).bg(t.border)] : []), ...rest.map(row)])
       .when(!this.configs.length, (el) => el.child(div().px(12).py(8).text_color(t.dim).child("No run configurations found")));
   }
 
@@ -362,6 +417,8 @@ export default class RunConfigs extends View {
     const rows = this.state.has(BUILD) || this.job?.phase === "building" ? [{ name: BUILD }, ...list] : list;
     return v_flex().id("run-configs").size_full().min_h(0).overflow_hidden().bg(t.background).text_color(t.foreground).text_size(12)
       .child(this.toolbar(t, list))
+      .when(Boolean(this.closing), (el) => el.child(div().flex_none().px(12).py(6).bg(t.raised).text_color(t.working)
+        .child("Stopping every process. This tab closes when they have ended; close it again to not wait.")))
       .when(Boolean(this.error), (el) => el.child(div().px(12).py(8).text_color(t.ansi1).child(this.error)))
       .when(!this.error && (this.picking || !this.selected), (el) => el.child(this.picker(t)))
       .when(!this.error && !this.picking && Boolean(this.selected), (el) => el

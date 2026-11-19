@@ -88,8 +88,20 @@ if (-not $Pull -and -not $skip['app'] -and (Test-Path -LiteralPath $keysPath)) {
     }
     $previous = '"alt-up": "agent.prev",'
     if ($bound -notmatch '"alt-a"' -and $bound.Contains($previous)) {
-        [System.IO.File]::WriteAllText($keysPath, $bound.Replace($previous, $previous + ' "alt-a": "agents-bots.top",'))
+        $bound = $bound.Replace($previous, $previous + ' "alt-a": "agents-bots.top",')
+        [System.IO.File]::WriteAllText($keysPath, $bound)
         Write-Host "bound      alt-a to the top agent in $keysPath"
+    }
+    $previous = '"ctrl-shift-t": "tab.new",'
+    if ($bound -notmatch '"ctrl-shift-r"' -and $bound.Contains($previous)) {
+        $bound = $bound.Replace($previous, $previous + ' "ctrl-shift-r": "tabs-timer.run",')
+        [System.IO.File]::WriteAllText($keysPath, $bound)
+        Write-Host "bound      ctrl-shift-r to the run config tab in $keysPath"
+    }
+    $previous = '"terminal": {'
+    if ($bound -notmatch '"layout:main-folders"' -and $bound.Contains($previous)) {
+        [System.IO.File]::WriteAllText($keysPath, $bound.Replace($previous, '"layout:main-folders": { "ctrl-shift-w": "tabs-timer.close" }, ' + $previous))
+        Write-Host "bound      ctrl-shift-w to the tab bar's close in $keysPath"
     }
 }
 

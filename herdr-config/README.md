@@ -13,6 +13,8 @@
 | `app/mods/files-flat/`, `app/mods/changes-flat/` | `~\.config\herdr-app\mods\` | Clones of the shipped `files` and `changes` panels without their rounded border; the layout draws the lines between them. The Changes diff also has a Wrap toggle for long lines and a sideways scrollbar that always shows. |
 | `app/mods/agents-bots/` | `~\.config\herdr-app\mods\` | Clone of the shipped `agents` list that shows each agent as a card: a robot avatar, a context bar, the time since its status changed and the status. |
 | `app/mods/tabs-timer/` | `~\.config\herdr-app\mods\` | Clone of the shipped `tabs` bar that shows, on a tab whose agent is working, how long it has been working, and has the Keys button. |
+| `app/mods/new-menu-run/` | `~\.config\herdr-app\mods\` | Clone of the shipped `new-menu` popup behind the `+` in the tab bar, with a "Start a run config…" row. |
+| `app/mods/run-configs/` | `~\.config\herdr-app\mods\` | Our own tab that runs the JetBrains run configurations (`.run\*.run.xml`) of a folder and shows the output of each process. Windows and .NET only: it runs `LaunchSettings` configurations with `dotnet run` after one `dotnet build`, `RunNativeExe` configurations as they are, and compounds of those; other types are listed as skipped. |
 | `app/mods/cheatsheet/` | `~\.config\herdr-app\mods\` | Our own panel listing the keyboard shortcuts, opened with Keys next to Changes. |
 | `app/mods/prs-panel/` | `~\.config\herdr-app\mods\` | Our own bar under the terminals with the open Asito pull requests: one summary line that unfolds into Mine and To review. Needs an authenticated `gh`. |
 
@@ -46,7 +48,7 @@ The `+` in the Spaces header and `ctrl-shift-n` open the `space-open` picker: th
 
 `Install.ps1` rebinds `ctrl-shift-n` in the app's `keys.json` from `space.new` to the picker, and binds `alt-a` to `agents-bots.top`, which shows the agent at the top of the Agents list. "New space" in the tab bar's `+` menu and in the command palette is still Herdr's own and starts a shell; the [PowerShell profile](../powershell-profile/README.md) launches `claude` in it, as in any space's first terminal.
 
-The layout and the `spaces-folders`, `files-flat`, `changes-flat`, `agents-bots` and `tabs-timer` mods were cloned from Herdr app 0.1.16 (`cloned_from` in the files). Herdr never updates clones, so changes to the shipped `main` layout or `spaces`, `files`, `changes`, `agents` and `tabs` mods have to be merged in; see [After a Herdr update](#after-a-herdr-update).
+The layout and the `spaces-folders`, `files-flat`, `changes-flat`, `agents-bots`, `tabs-timer` and `new-menu-run` mods were cloned from Herdr app 0.1.16 (`cloned_from` in the files). Herdr never updates clones, so changes to the shipped `main` layout or `spaces`, `files`, `changes`, `agents`, `tabs` and `new-menu` mods have to be merged in; see [After a Herdr update](#after-a-herdr-update).
 
 ## Install
 

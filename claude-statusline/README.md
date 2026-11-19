@@ -12,7 +12,7 @@ Renders, in one line:
 - **5h / 7d** — session rate-limit usage bars with time-until-reset
 - **[CAVEMAN:MODE]** indicator when the caveman plugin's mode flag is active
 
-Inside a Herdr app pane it also writes the context percentage to `data\claude-statusline\<terminal id>.json` in the app's folder (`~\.config\herdr-app`), which the `agents-bots` mod in `herdr-config` shows as a bar per agent.
+Inside a Herdr app pane it also writes the context percentage to `data\claude-statusline\<terminal id>.json` in the app's folder (`~\.config\herdr-app`), which the Agent Cards mod of [herdr-mods](https://github.com/Cerbrus/herdr-mods) shows as a bar per agent.
 
 ## Files
 

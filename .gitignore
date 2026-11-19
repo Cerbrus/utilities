@@ -8,8 +8,3 @@ Desktop.ini
 
 # Machine-specific config (created by wifi-mute\Install.ps1)
 wifi-mute/networks.json
-
-# Files the Herdr app writes into mod folders
-herdr-config/**/*.error
-herdr-config/**/jsconfig.json
-herdr-config/**/*.d.ts

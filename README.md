@@ -27,7 +27,7 @@ Everything runs non-elevated; no admin prompt required.
 | Utility | Description |
 |---------|-------------|
 | [claude-statusline](claude-statusline/README.md) | Status line for Claude Code: branch, model, context usage, rate limits |
-| [herdr-config](herdr-config/README.md) | [herdr](https://herdr.dev) customization: terminal config, plus Herdr app mods that put spaces in nested, collapsible folders and open new spaces from a folder picker |
+| [herdr-mods](herdr-mods/README.md) | Installs the [Herdr](https://herdr.dev) app mods and layout from their own repository, [Cerbrus/herdr-mods](https://github.com/Cerbrus/herdr-mods) |
 | [powershell-profile](powershell-profile/README.md) | Shortcut to launch `claude` in a project folder (default `C:\DEV`), via an interactive picker (`dev` / `agent`) |
 | [wifi-mute](wifi-mute/README.md) | Mutes/unmutes audio automatically when connecting to configured Wi-Fi networks |
 
